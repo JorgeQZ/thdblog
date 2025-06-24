@@ -20,31 +20,19 @@ function validate_api_client($request) {
  * Código para habilitar el endpoint REST API que devuelve las publicaciones del blog.
  */
 function blog_rest_permission($request) {
-    $auth = $request->get_header('Authorization');
-    if (!$auth || stripos($auth, 'Bearer ') !== 0) return false;
-
-    $token = trim(str_ireplace('Bearer', '', $auth));
-    if (!str_contains($token, '.')) return false;
-
-    [$payload_b64, $signature] = explode('.', $token);
-    $payload_json = base64_decode($payload_b64);
-    $payload = json_decode($payload_json, true);
-
-    if (!$payload || !isset($payload['exp'], $payload['client_id'])) return false;
-    if (time() > $payload['exp']) return false;
-
     global $wpdb;
-    $table = $wpdb->prefix . 'api_clients';
+
+    $client_id = $request->get_header('X-Client-ID');
+    $secret    = $request->get_header('X-Client-Secret');
+
+    if (!$client_id || !$secret) return false;
+
     $row = $wpdb->get_row(
-        $wpdb->prepare("SELECT secret_key FROM $table WHERE client_id = %s", $payload['client_id'])
+        $wpdb->prepare("SELECT secret_key FROM {$wpdb->prefix}api_clients WHERE client_id = %s", $client_id)
     );
 
-    if (!$row) return false;
-
-    $expected_sig = hash_hmac('sha256', $payload_b64, $row->secret_key);
-    return hash_equals($expected_sig, $signature);
+    return $row && hash_equals($row->secret_key, $secret);
 }
-
 /**
  * Código para habilitar el endpoint REST API que genera un token JWT.
  * Este token se usará para autenticar solicitudes a otros endpoints.
