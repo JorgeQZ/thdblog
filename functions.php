@@ -10,10 +10,11 @@ add_theme_support('post-thumbnails'); // Enable post thumbnails support for the 
 // Enable CORS for REST API requests
 // This code allows cross-origin requests to the REST API, enabling access from different domains.
 add_action('init', function () {
-    if (isset($_SERVER['HTTP_ORIGIN'])) {
-        header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
-        header("Access-Control-Allow-Methods: GET, OPTIONS");
-        header("Access-Control-Allow-Headers: Content-Type");
+    $allowed = [get_site_url()];
+    if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed, true)) {
+        header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+        header('Access-Control-Allow-Methods: GET, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -30,13 +31,89 @@ add_action('init', function () {
 // Add a REST API endpoint to get blog posts
 // This endpoint retrieves all published posts with their details.
 // It includes title, excerpt, content, slug, link, date, categories, tags,
+/**
+ * Permission callback for custom REST endpoints.
+ *
+ * Allows access to authenticated users via WordPress cookies or via a
+ * temporary API token provided in the Authorization header (Bearer
+ * "user|token") or a `token` request parameter.
+ */
+function blog_rest_permission($request) {
+    if (is_user_logged_in() && current_user_can('read')) {
+        return true;
+    }
+
+    $auth = $request->get_header('authorization');
+    if ($auth && stripos($auth, 'Bearer ') === 0) {
+        $raw = trim(substr($auth, 7));
+    } else {
+        $raw = $request->get_param('token');
+    }
+
+    if (!$raw) {
+        return false;
+    }
+
+    list($uid, $token) = array_pad(explode('|', $raw, 2), 2, null);
+    $uid = (int) $uid;
+    if (!$uid || !$token) {
+        return false;
+    }
+
+    $hash = get_user_meta($uid, '_api_token_hash', true);
+    $exp  = (int) get_user_meta($uid, '_api_token_exp', true);
+    if (!$hash || !$exp || time() > $exp) {
+        return false;
+    }
+
+    if (wp_check_password($token, $hash, $uid)) {
+        return user_can($uid, 'read');
+    }
+
+    return false;
+}
+
 add_action('rest_api_init', function () {
+    register_rest_route('blog/v1', '/token', [
+        'methods'  => 'POST',
+        'callback' => 'blog_generate_token',
+        'permission_callback' => '__return_true',
+    ]);
     register_rest_route('blog/v1', '/posts', [
         'methods'  => 'GET',
         'callback' => 'blog_get_posts',
-        'permission_callback' => '__return_true'
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
+
+/**
+ * Generate a temporary API token for a user.
+ *
+ * Expects 'username' and 'password' parameters via POST. Returns a token that
+ * must be sent as a Bearer token in subsequent requests.
+ */
+function blog_generate_token($request) {
+    $username = sanitize_text_field($request->get_param('username'));
+    $password = $request->get_param('password');
+
+    if (!$username || !$password) {
+        return new WP_Error('missing_credentials', 'Username and password required', ['status' => 400]);
+    }
+
+    $user = wp_authenticate($username, $password);
+    if (is_wp_error($user)) {
+        return new WP_Error('invalid_credentials', 'Invalid credentials', ['status' => 403]);
+    }
+
+    $token = wp_generate_password(32, false);
+    update_user_meta($user->ID, '_api_token_hash', wp_hash_password($token));
+    update_user_meta($user->ID, '_api_token_exp', time() + DAY_IN_SECONDS);
+
+    return [
+        'token' => $user->ID . '|' . $token,
+        'expires_in' => DAY_IN_SECONDS
+    ];
+}
 
 function blog_get_posts($request) {
     $args = [
@@ -76,9 +153,9 @@ function blog_get_posts($request) {
             'status'            => $post->post_status,
             'link'              => get_permalink($post),
             'title'             => get_the_title($post),
-            'content' => apply_filters('the_content', $post->post_content) . render_steps_as_html($post->ID),
+            'content'           => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($post->ID),
             'author'            => get_the_author_meta('display_name', $author_id),
-            'authorDescription' => get_the_author_meta('description', $author_id),
+            'authorDescription' => wp_kses_post(get_the_author_meta('description', $author_id)),
             'postType'          => $post->post_type,
             'steps' => get_post_meta($post->ID, 'how-to__steps', true),
 
@@ -96,7 +173,7 @@ function blog_get_posts($request) {
         ];
     }
 
-    return $posts;
+    return rest_ensure_response($posts);
 }
 
 function render_steps_as_html($post_id) {
@@ -200,18 +277,17 @@ add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/pages', [
         'methods'  => 'GET',
         'callback' => 'blog_get_clean_pages',
-        'permission_callback' => '__return_true'
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
 
 function blog_get_clean_pages($request) {// Function to get clean pages
     // This function retrieves a paginated list of published pages.
     // It accepts 'page' and 'per_page' parameters to control pagination.
-    $page = $request->get_param('page') ?: 1;
-    $per_page = $request->get_param('per_page') ?: 10;
+    $page = max(1, (int) $request->get_param('page'));
+    $per_page = max(1, min(100, (int) $request->get_param('per_page')));
 
-
-    // Validate the 'page' and 'per_page' parameters
+    // Build query args
     $args = [
         'post_type'      => 'page', // Changed from 'post' to 'page'
         'post_status'    => 'publish',// Only published pages
@@ -228,7 +304,7 @@ function blog_get_clean_pages($request) {// Function to get clean pages
             'id'         => $post->ID, // Page ID
             'title'      => get_the_title($post), // Page title
             'excerpt'    => wp_strip_all_tags(get_the_excerpt($post)), // Page excerpt
-            'content'    => apply_filters('the_content', $post->post_content), // Page content with filters applied
+            'content'    => wp_kses_post(apply_filters('the_content', $post->post_content)), // Sanitized page content
             'slug'       => $post->post_name, // Page slug
             'link'       => get_permalink($post), // Page permalink
             'date'       => get_the_date('', $post), // Page publication date
@@ -237,13 +313,15 @@ function blog_get_clean_pages($request) {// Function to get clean pages
     }
 
     // Prepare the response with pagination information
-    return [
+    $response = [
         'page'        => (int)$page,
         'per_page'    => (int)$per_page,
         'total'       => (int)$query->found_posts,
         'total_pages' => (int)$query->max_num_pages,
         'pages'       => $pages
     ];
+
+    return rest_ensure_response($response);
 }
 
 
@@ -255,7 +333,7 @@ add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/posttaxonomies', [
         'methods'  => 'GET',
         'callback' => 'api_posts_taxonomies',
-        'permission_callback' => '__return_true'
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
 
@@ -284,4 +362,5 @@ function api_posts_taxonomies($request) {
 
     return rest_ensure_response($resultado);
 }
-?>
+
+
