@@ -35,4 +35,18 @@ add_action('init', function () {
 });
 
 
-?>
+?>    $key = 'token_fail_' . md5($username . '|' . $_SERVER['REMOTE_ADDR']);
+    $attempts = (int) get_transient($key);
+    if ($attempts >= 5) {
+        return new WP_Error(
+            'too_many_attempts',
+            'Too many failed attempts, please try again later',
+            ['status' => 429]
+        );
+    }
+
+        set_transient($key, $attempts + 1, 15 * MINUTE_IN_SECONDS);
+    delete_transient($key);
+    update_user_meta($user->ID, '_api_token_exp', time() + HOUR_IN_SECONDS);
+        'expires_in' => HOUR_IN_SECONDS
+            'description' => wp_kses_post($cat->description),
