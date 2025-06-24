@@ -10,10 +10,11 @@ add_theme_support('post-thumbnails'); // Enable post thumbnails support for the 
 // Enable CORS for REST API requests
 // This code allows cross-origin requests to the REST API, enabling access from different domains.
 add_action('init', function () {
-    if (isset($_SERVER['HTTP_ORIGIN'])) {
-        header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
-        header("Access-Control-Allow-Methods: GET, OPTIONS");
-        header("Access-Control-Allow-Headers: Content-Type");
+    $allowed = [get_site_url()];
+    if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed, true)) {
+        header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+        header('Access-Control-Allow-Methods: GET, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type');
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -30,11 +31,15 @@ add_action('init', function () {
 // Add a REST API endpoint to get blog posts
 // This endpoint retrieves all published posts with their details.
 // It includes title, excerpt, content, slug, link, date, categories, tags,
+function blog_rest_permission() {
+    return current_user_can('read');
+}
+
 add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/posts', [
         'methods'  => 'GET',
         'callback' => 'blog_get_posts',
-        'permission_callback' => '__return_true'
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
 
@@ -76,7 +81,7 @@ function blog_get_posts($request) {
             'status'            => $post->post_status,
             'link'              => get_permalink($post),
             'title'             => get_the_title($post),
-            'content' => apply_filters('the_content', $post->post_content) . render_steps_as_html($post->ID),
+            'content'           => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($post->ID),
             'author'            => get_the_author_meta('display_name', $author_id),
             'authorDescription' => get_the_author_meta('description', $author_id),
             'postType'          => $post->post_type,
@@ -200,18 +205,17 @@ add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/pages', [
         'methods'  => 'GET',
         'callback' => 'blog_get_clean_pages',
-        'permission_callback' => '__return_true'
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
 
 function blog_get_clean_pages($request) {// Function to get clean pages
     // This function retrieves a paginated list of published pages.
     // It accepts 'page' and 'per_page' parameters to control pagination.
-    $page = $request->get_param('page') ?: 1;
-    $per_page = $request->get_param('per_page') ?: 10;
+    $page = max(1, (int) $request->get_param('page'));
+    $per_page = max(1, min(100, (int) $request->get_param('per_page')));
 
-
-    // Validate the 'page' and 'per_page' parameters
+    // Build query args
     $args = [
         'post_type'      => 'page', // Changed from 'post' to 'page'
         'post_status'    => 'publish',// Only published pages
@@ -228,7 +232,7 @@ function blog_get_clean_pages($request) {// Function to get clean pages
             'id'         => $post->ID, // Page ID
             'title'      => get_the_title($post), // Page title
             'excerpt'    => wp_strip_all_tags(get_the_excerpt($post)), // Page excerpt
-            'content'    => apply_filters('the_content', $post->post_content), // Page content with filters applied
+            'content'    => wp_kses_post(apply_filters('the_content', $post->post_content)), // Sanitized page content
             'slug'       => $post->post_name, // Page slug
             'link'       => get_permalink($post), // Page permalink
             'date'       => get_the_date('', $post), // Page publication date
@@ -255,7 +259,7 @@ add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/posttaxonomies', [
         'methods'  => 'GET',
         'callback' => 'api_posts_taxonomies',
-        'permission_callback' => '__return_true'
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
 
