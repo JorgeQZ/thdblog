@@ -9,35 +9,23 @@ add_action('rest_api_init', function () {
 });
 
 function blog_get_posts($request) {
+    $page     = max(1, (int) $request->get_param('page'));
+    $per_page = max(1, min(100, (int) $request->get_param('per_page')));
+
     $args = [
         'post_type'      => 'post',
-        'posts_per_page' => -1,
+        'posts_per_page' => $per_page,
+        'paged'          => $page,
         'post_status'    => 'publish'
     ];
-
-
 
     $query = new WP_Query($args);
     $posts = [];
 
     foreach ($query->posts as $post) {
         $id = $post->ID;
-        $content = $post->post_content;
         $author_id = $post->post_author;
-
-        // Extraer campos personalizados
         $get_meta = fn($key) => get_post_meta($id, $key, true);
-
-        $steps = get_post_meta($post->ID, 'how-to__steps', true);
-        $steps_html = '';
-        if (is_array($steps)) {
-            foreach ($steps as $i => $step) {
-                $id = 'step' . ($i + 1);
-                $title = $step['how-to__step-name'] ?? 'Paso';
-                $desc = $step['how-to__step-description'] ?? '';
-                $steps_html .= "<div id=\"$id\"><h3>$title</h3><p>$desc</p></div>";
-            }
-        }
 
         $posts[] = [
             'id'                => $id,
@@ -46,27 +34,32 @@ function blog_get_posts($request) {
             'status'            => $post->post_status,
             'link'              => get_permalink($post),
             'title'             => get_the_title($post),
-            'content'           => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($post->ID),
+            'content'           => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($id),
             'author'            => get_the_author_meta('display_name', $author_id),
             'authorDescription' => get_the_author_meta('description', $author_id),
             'postType'          => $post->post_type,
-            'steps' => get_post_meta($post->ID, 'how-to__steps', true),
-
+            'steps'             => get_post_meta($id, 'how-to__steps', true),
             'difficulty'        => $get_meta('_difficulty'),
-            'duration'          => estimate_post_duration($post->ID),
+            'duration'          => estimate_post_duration($id),
             'thumbnail'         => get_the_post_thumbnail_url($id, 'medium'),
             'mainImage'         => get_the_post_thumbnail_url($id, 'full'),
             'shortDescription'  => $get_meta('_short_description'),
             'video'             => $get_meta('_video_url'),
             'categories'        => wp_get_post_categories($id),
             'tags'              => wp_get_post_tags($id, ['fields' => 'ids']),
-            'navigator'         => generate_navigator_from_steps($post->ID),
-            'relatedPosts'      => get_related_posts($post->ID),
+            'navigator'         => generate_navigator_from_steps($id),
+            'relatedPosts'      => get_related_posts($id),
             'attributes'        => json_decode($get_meta('_attributes')) ?: new stdClass(),
         ];
     }
 
-    return $posts;
+    return [
+        'page'         => $page,
+        'per_page'     => $per_page,
+        'total'        => (int) $query->found_posts,
+        'total_pages'  => (int) $query->max_num_pages,
+        'posts'        => $posts
+    ];
 }
 
 function render_steps_as_html($post_id) {

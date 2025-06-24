@@ -28,7 +28,6 @@ function api_posts_taxonomies($request) {
             'id'          => $cat->term_id,
             'name'        => $cat->name,
             'slug'        => $cat->slug,
-            'description' => $cat->description,
             'count'       => $cat->count,
             'image_url'       => $imagen_url ?: null,
             'image_png'       => $imagen_png ?: null
