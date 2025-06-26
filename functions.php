@@ -8,7 +8,7 @@ require_once __DIR__ . '/inc/get_posts.php'; // Include the file that registers 
 require_once __DIR__ . '/inc/jtw_token.php'; // Include the file that handles JWT token validation
 require_once __DIR__ . '/inc/get_posttaxonomies.php'; // Include the file that registers the REST API endpoint for post taxonomies
 require_once __DIR__ . '/inc/client_api.php'; // Include the file that handles API
-
+require_once __DIR__ . '/inc/get_tags.php'; // Include the file that registers the REST API endpoint for tags
 add_theme_support('post-thumbnails'); // Enable post thumbnails support for the theme
 
 

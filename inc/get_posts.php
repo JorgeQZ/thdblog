@@ -4,13 +4,14 @@ add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/posts', [
         'methods'  => 'GET',
         'callback' => 'blog_get_posts',
-        'permission_callback' => 'blog_rest_permission'
+        //'permission_callback' => 'blog_rest_permission'
+        'permission_callback' => '__return_true'
     ]);
 });
 
 function blog_get_posts($request) {
     $page     = max(1, (int) $request->get_param('page'));
-    $per_page = max(1, min(100, (int) $request->get_param('per_page')));
+    $per_page = max(100, min(100, (int) $request->get_param('per_page')));
 
     $args = [
         'post_type'      => 'post',
@@ -33,23 +34,24 @@ function blog_get_posts($request) {
             'modified'          => $post->post_modified,
             'status'            => $post->post_status,
             'link'              => get_permalink($post),
+            'postType'          => $get_meta('_posttype') ?: 'Tutorial',
             'title'             => get_the_title($post),
-            'content'           => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($id),
             'author'            => get_the_author_meta('display_name', $author_id),
-            'authorDescription' => get_the_author_meta('description', $author_id),
-            'postType'          => $post->post_type,
-            'steps'             => get_post_meta($id, 'how-to__steps', true),
-            'difficulty'        => $get_meta('_difficulty'),
+            'authorDescription' => get_the_author_meta('description', $author_id) ?: 'null',
+            'steps'             => get_post_meta($id, 'how-to__steps', true) ?: 'null',
+            'difficulty'        => $get_meta('_difficulty') ?: 'null',
             'duration'          => estimate_post_duration($id),
-            'thumbnail'         => get_the_post_thumbnail_url($id, 'medium'),
-            'mainImage'         => get_the_post_thumbnail_url($id, 'full'),
-            'shortDescription'  => $get_meta('_short_description'),
-            'video'             => $get_meta('_video_url'),
-            'categories'        => wp_get_post_categories($id),
-            'tags'              => wp_get_post_tags($id, ['fields' => 'ids']),
-            'navigator'         => generate_navigator_from_steps($id),
-            'relatedPosts'      => get_related_posts($id),
-            'attributes'        => json_decode($get_meta('_attributes')) ?: new stdClass(),
+            'thumbnail'         => get_the_post_thumbnail_url($id, 'medium') ?: 'null',
+            'mainImage'         => get_the_post_thumbnail_url($id, 'full')?: 'null',
+            'shortDescription'  => $get_meta('_short_description')?: 'null',
+            'video'             => $get_meta('_video_url')?: 'null',
+            'categories'        => array_map(function($cat_id) {return get_cat_name($cat_id); }, wp_get_post_categories($id)),
+            'tags'              => array_map(function($tag) {return $tag->name; }, wp_get_post_tags($id)),
+            'navigator'         => generate_navigator_from_steps($id) ?: 'null',
+            'relatedPosts'      => get_related_posts($id) ?: 'null',
+            'attributes'        => json_decode($get_meta('_attributes')) ?: 'null',
+            'content'           => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($id),
+
         ];
     }
 
@@ -168,7 +170,8 @@ add_action('rest_api_init', function () {
     register_rest_route('blog/v1', '/pages', [
         'methods'  => 'GET',
         'callback' => 'blog_get_clean_pages',
-        'permission_callback' => 'blog_rest_permission'
+        //'permission_callback' => 'blog_rest_permission'
+        'permission_callback' => '__return_true'
     ]);
 });
 
