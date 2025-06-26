@@ -1,6 +1,6 @@
 <?php
 add_action('rest_api_init', function () {
-    register_rest_route('blog/v1', '/tags', [
+    register_rest_route('v1', '/tags', [
         'methods'  => 'GET',
         'callback' => 'api_post_tags',
          //'permission_callback' => 'blog_rest_permission'

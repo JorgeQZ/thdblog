@@ -5,7 +5,7 @@
  */
 
 add_action('rest_api_init', function () {
-    register_rest_route('blog/v1', '/posttaxonomies', [
+    register_rest_route('v1', '/posttaxonomies', [
         'methods'  => 'GET',
         'callback' => 'api_posts_taxonomies',
          //'permission_callback' => 'blog_rest_permission'

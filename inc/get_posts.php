@@ -1,7 +1,7 @@
 <?php
 
 add_action('rest_api_init', function () {
-    register_rest_route('blog/v1', '/posts', [
+    register_rest_route('v1', '/posts', [
         'methods'  => 'GET',
         'callback' => 'blog_get_posts',
         //'permission_callback' => 'blog_rest_permission'
@@ -167,7 +167,7 @@ function estimate_post_duration($post_id) {
 
  // Add a REST API endpoint to get clean pages
 add_action('rest_api_init', function () {
-    register_rest_route('blog/v1', '/pages', [
+    register_rest_route('v1', '/pages', [
         'methods'  => 'GET',
         'callback' => 'blog_get_clean_pages',
         //'permission_callback' => 'blog_rest_permission'
