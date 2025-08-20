@@ -33,7 +33,8 @@ add_action('admin_menu', function () {
     }
 });
 
-function mostrar_api_client_manager() {
+function mostrar_api_client_manager()
+{
     global $wpdb;
     $tabla = $wpdb->prefix . 'api_clients';
 
@@ -43,9 +44,9 @@ function mostrar_api_client_manager() {
         $secret_key = bin2hex(random_bytes(32));
 
         $wpdb->insert($tabla, [
-            'client_id'  => $client_id,
+            'client_id' => $client_id,
             'secret_key' => $secret_key,
-            'nombre'     => $nombre
+            'nombre' => $nombre
         ]);
         echo '<div class="notice notice-success"><p>Cliente creado.</p></div>';
     }
@@ -68,14 +69,16 @@ function mostrar_api_client_manager() {
         <hr>
 
         <table class="widefat">
-            <thead><tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Client ID</th>
-                <th>Secret</th>
-                <th>Creado</th>
-                <th>Acciones</th>
-            </tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Client ID</th>
+                    <th>Secret</th>
+                    <th>Creado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
             <tbody>
                 <?php foreach ($clientes as $c): ?>
                     <tr>
@@ -85,11 +88,13 @@ function mostrar_api_client_manager() {
                         <td style="font-size:0.85em;"><code><?= esc_html($c->secret_key) ?></code></td>
                         <td><?= esc_html($c->creado_en) ?></td>
                         <td>
-                            <a href="<?= admin_url('admin.php?page=api-client-manager&eliminar=' . $c->id) ?>" onclick="return confirm('¿Eliminar?')" class="button">Eliminar</a>
+                            <a href="<?= admin_url('admin.php?page=api-client-manager&eliminar=' . $c->id) ?>"
+                                onclick="return confirm('¿Eliminar?')" class="button">Eliminar</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
-                <?php if (empty($clientes)) echo '<tr><td colspan="6">No hay clientes aún.</td></tr>'; ?>
+                <?php if (empty($clientes))
+                    echo '<tr><td colspan="6">No hay clientes aún.</td></tr>'; ?>
             </tbody>
         </table>
     </div>

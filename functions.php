@@ -33,6 +33,30 @@ add_action('init', function () {
         exit;
     }
 });
+// Soportes básicos de tema
+function thdblog_theme_setup() {
+    add_theme_support('title-tag');
+    add_theme_support('post-thumbnails');
+    add_theme_support('custom-logo', array(
+        'height'      => 100,
+        'width'       => 400,
+        'flex-height' => true,
+        'flex-width'  => true,
+        'header-text' => array('site-title', 'site-description'),
+        'variants'    => array(
+            'default' => array(
+                'label' => __('Logo Principal', 'thdblog'),
+            ),
+            'dark' => array(
+                'label' => __('Logo Modo Oscuro', 'thdblog'),
+            ),
+        ),
+    ));
+
+    add_theme_support('menus');
+    add_theme_support('html5', array('search-form', 'comment-form', 'comment-list', 'gallery', 'caption'));
+}
+add_action('after_setup_theme', 'thdblog_theme_setup');
 
 
 ?>

@@ -2,12 +2,14 @@
 /**
  * Código para habilitar el endpoint REST API que valida un cliente API.
  */
-function validate_api_client($request) {
+function validate_api_client($request)
+{
     global $wpdb;
     $client_id = $request->get_header('X-Client-ID');
-    $secret    = $request->get_header('X-Client-Secret');
+    $secret = $request->get_header('X-Client-Secret');
 
-    if (!$client_id || !$secret) return false;
+    if (!$client_id || !$secret)
+        return false;
 
     $row = $wpdb->get_row(
         $wpdb->prepare("SELECT secret_key FROM {$wpdb->prefix}api_clients WHERE client_id = %s", $client_id)
@@ -19,13 +21,15 @@ function validate_api_client($request) {
 /**
  * Código para habilitar el endpoint REST API que devuelve las publicaciones del blog.
  */
-function blog_rest_permission($request) {
+function blog_rest_permission($request)
+{
     global $wpdb;
 
     $client_id = $request->get_header('X-Client-ID');
-    $secret    = $request->get_header('X-Client-Secret');
+    $secret = $request->get_header('X-Client-Secret');
 
-    if (!$client_id || !$secret) return false;
+    if (!$client_id || !$secret)
+        return false;
 
     $row = $wpdb->get_row(
         $wpdb->prepare("SELECT secret_key FROM {$wpdb->prefix}api_clients WHERE client_id = %s", $client_id)
@@ -39,16 +43,17 @@ function blog_rest_permission($request) {
  */
 
 add_action('rest_api_init', function () {
-    register_rest_route('blog/v1', '/token', [
+    register_rest_route('auth/v1', '/token', [
         'methods' => 'POST',
         'callback' => 'blog_generate_token',
         'permission_callback' => '__return_true',
     ]);
 });
 
-function blog_generate_token($request) {
+function blog_generate_token($request)
+{
     $client_id = $request->get_param('client_id');
-    $secret    = $request->get_param('secret');
+    $secret = $request->get_param('secret');
 
     global $wpdb;
     $row = $wpdb->get_row(

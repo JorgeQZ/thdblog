@@ -1,1 +1,12 @@
 test.php
+# Node y dependencias
+node_modules/
+npm-debug.log
+package-lock.json
+package.json
+
+# Archivos de BrowserSync
+bs-config.js
+
+# Archivos del sistema
+.DS_Store
