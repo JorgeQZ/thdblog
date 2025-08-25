@@ -59,4 +59,26 @@ function thdblog_theme_setup() {
 add_action('after_setup_theme', 'thdblog_theme_setup');
 
 
+// Enqueue de scripts y estilos
+function thdblog_enqueue_assets() {
+    // Encolar el CSS principal
+    wp_enqueue_style(
+        'thdblog-main',
+        get_template_directory_uri() . '/css/main.css',
+        array(),
+        filemtime(get_template_directory() . '/css/main.css')
+    );
+    // Aquí puedes agregar más scripts o estilos si lo necesitas
+
+     if (is_single()) {
+        wp_enqueue_style(
+            'thdblog-single',
+            get_template_directory_uri() . '/css/single.css',
+            array('thdblog-main'),
+            filemtime(get_template_directory() . '/css/single.css')
+        );
+    }
+}
+add_action('wp_enqueue_scripts', 'thdblog_enqueue_assets');
+
 ?>
