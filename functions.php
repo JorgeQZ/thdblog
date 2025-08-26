@@ -22,7 +22,7 @@ add_action('init', function () {
     //     header('Access-Control-Allow-Headers: Content-Type');
     // }
 
-     if (isset($_SERVER['HTTP_ORIGIN'])) {
+    if (isset($_SERVER['HTTP_ORIGIN'])) {
         header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
         header("Access-Control-Allow-Methods: GET, OPTIONS");
         header("Access-Control-Allow-Headers: Content-Type");
@@ -34,7 +34,8 @@ add_action('init', function () {
     }
 });
 // Soportes básicos de tema
-function thdblog_theme_setup() {
+function thdblog_theme_setup()
+{
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
     add_theme_support('custom-logo', array(
@@ -60,7 +61,8 @@ add_action('after_setup_theme', 'thdblog_theme_setup');
 
 
 // Enqueue de scripts y estilos
-function thdblog_enqueue_assets() {
+function thdblog_enqueue_assets()
+{
     // Encolar el CSS principal
     wp_enqueue_style(
         'thdblog-main',
@@ -68,9 +70,17 @@ function thdblog_enqueue_assets() {
         array(),
         filemtime(get_template_directory() . '/css/main.css')
     );
+
+    wp_enqueue_script(
+        'thdblog-main-js',
+        get_template_directory_uri() . '/js/main.js',
+        array(),
+        filemtime(get_template_directory() . '/js/main.js'),
+        true
+    );
     // Aquí puedes agregar más scripts o estilos si lo necesitas
 
-     if (is_single()) {
+    if (is_single()) {
         wp_enqueue_style(
             'thdblog-single',
             get_template_directory_uri() . '/css/single.css',
@@ -81,4 +91,31 @@ function thdblog_enqueue_assets() {
 }
 add_action('wp_enqueue_scripts', 'thdblog_enqueue_assets');
 
-?>
+
+/**
+ *
+ */
+
+// Relación: Guías de venta
+add_filter('acf/fields/relationship/query/name=related_posts_guias', function ($args, $field, $post_id) {
+    $args['meta_query'] = [
+        [
+            'key'     => '_posttype',
+            'value'   => 'Buying Guide', // Coincide con el Value de tu select
+            'compare' => '='
+        ]
+    ];
+    return $args;
+}, 10, 3);
+
+// Relación: Tutoriales
+add_filter('acf/fields/relationship/query/name=related_posts_tutoriales', function ($args, $field, $post_id) {
+    $args['meta_query'] = [
+        [
+            'key'     => '_posttype',
+            'value'   => 'Tutorial',
+            'compare' => '='
+        ]
+    ];
+    return $args;
+}, 10, 3);

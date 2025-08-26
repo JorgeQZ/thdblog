@@ -47,13 +47,11 @@ function blog_get_posts($request)
             'shortDescription' => $get_meta('_short_description') ?: 'null',
             'video' => $get_meta('_video_url') ?: 'null',
             'categories' => wp_get_post_categories($id),
-            'tags' => array_map(function ($tag) {
-                return $tag->name;
-            }, wp_get_post_tags($id)),
+            'tags' => array_map(function ($tag) {return $tag->name;}, wp_get_post_tags($id)),
             'navigator' => generate_navigator_from_steps($id) ?: 'null',
-            'relatedPosts' => get_related_posts($id) ?: 'null',
+            // 'relatedPosts' => get_related_posts($id) ?: 'null',
             'attributes' => json_decode($get_meta('_attributes')) ?: 'null',
-            'content' => wp_kses_post(apply_filters('the_content', $post->post_content)) . render_steps_as_html($id),
+            'content' => wp_kses_post($post->post_content),
 
         ];
     }
@@ -67,55 +65,33 @@ function blog_get_posts($request)
     ];
 }
 
-function render_steps_as_html($post_id)
-{
-    $total = (int) get_post_meta($post_id, 'how-to__steps', true);
-    if ($total === 0)
-        return '';
+function generate_navigator_from_steps($post_id){
+      // Leer el JSON desde el campo ACF (o desde post_meta directo)
+    $json = function_exists('get_field')
+        ? get_field('field_navigator', $post_id)
+        : get_post_meta($post_id, 'field_navigator', true);
 
-    $html = '';
-
-    for ($i = 0; $i < $total; $i++) {
-        $id = 'step' . ($i + 1);
-        $title = esc_html(get_post_meta($post_id, "how-to__steps_{$i}_how-to__step-name", true)) ?: 'Paso ' . ($i + 1);
-        $desc = wp_kses_post(get_post_meta($post_id, "how-to__steps_{$i}_how-to__step-description", true));
-        $img = esc_url(get_post_meta($post_id, "how-to__steps_{$i}_how-to__step-image", true));
-        $video = esc_url(get_post_meta($post_id, "how-to__steps_{$i}_how-to__step-video", true));
-
-        $html .= "<div id=\"{$id}\">";
-        $html .= "<h3>{$title}</h3>";
-        $html .= "<p>{$desc}</p>";
-
-        if ($img) {
-            $html .= "<img src=\"{$img}\" alt=\"{$title}\" />";
-        }
-
-        if ($video) {
-            $html .= "<div class=\"video-embed\"><iframe src=\"{$video}\" frameborder=\"0\" allowfullscreen></iframe></div>";
-        }
-
-        $html .= "</div>";
+    if (empty($json)) {
+        return null;
     }
 
-    return $html;
-}
-
-function generate_navigator_from_steps($post_id)
-{
-    $total = (int) get_post_meta($post_id, 'how-to__steps', true);
-    if ($total === 0)
-        return [];
+    $items = json_decode((string)$json, true);
+    if (!is_array($items)) {
+        return null;
+    }
 
     $navigator = [];
-
-    for ($i = 0; $i < $total; $i++) {
-        $id = 'step' . ($i + 1);
-        $title = esc_html(get_post_meta($post_id, "how-to__steps_{$i}_how-to__step-name", true)) ?: 'Paso ' . ($i + 1);
-        $navigator[] = "<a href=\"#{$id}\">" . ($i + 1) . ". {$title}</a>";
+    foreach ($items as $it) {
+        if (!empty($it['id']) && !empty($it['label'])) {
+            $title = esc_html($it['label']);
+            $href  = '#' . $it['id'];
+            $navigator[] = '<a href="' . esc_attr($href) . '">' . ($i + 1) . '. ' . $title . '</a>';
+        }
     }
 
-    return $navigator;
+    return !empty($navigator) ? $navigator : null;
 }
+
 
 function get_related_posts($post_id, $limit = 4)
 {
@@ -226,3 +202,150 @@ function blog_get_clean_pages($request)
     ];
 }
 
+
+/**
+ *
+ */
+
+if (!defined('THD_NAV_ACF_FIELD')) {
+    define('THD_NAV_ACF_FIELD', 'field_navigator'); // NAME por defecto
+}
+add_action('save_post', function( $post_id, $post, $update ){
+    if ( wp_is_post_autosave($post_id) || wp_is_post_revision($post_id) ) return;
+    if ( ! current_user_can('edit_post', $post_id) ) return;
+    if ( empty($post) || empty($post->post_content) ) {
+        thd_nav_update_acf($post_id, '');
+        return;
+    }
+
+    $content = $post->post_content;
+    $items   = [];
+
+    // —— INTENTO 1: DOMDocument (ideal)
+    if (class_exists('DOMDocument')) {
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>'.$content.'</body></html>';
+        $dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $xp  = new DOMXPath($dom);
+        $nodes = $xp->query('//*[@id and not(self::script or self::style or self::noscript or self::svg or self::path) and not(ancestor::header or ancestor::footer or ancestor::nav)]');
+
+        $seen = [];
+        foreach ($nodes as $node) {
+            /** @var DOMElement $node */
+            $id_raw = trim($node->getAttribute('id'));
+            if ($id_raw === '') continue;
+
+            $id = sanitize_title($id_raw);
+            if ($id === '' || isset($seen[$id])) continue;
+            $seen[$id] = true;
+
+            $tag = strtolower($node->tagName);
+
+            // Label “inteligente”
+            $label = $node->getAttribute('aria-label')
+                  ?: $node->getAttribute('data-label')
+                  ?: $node->getAttribute('data-title')
+                  ?: ($node->hasAttribute('alt') ? $node->getAttribute('alt') : '');
+
+            if ($label === '') {
+                $text = trim(preg_replace('/\s+/', ' ', $node->textContent ?? ''));
+                if ($text === '') {
+                    $head = $xp->query('.//h1|.//h2|.//h3|.//h4|.//h5|.//h6', $node)->item(0);
+                    if ($head instanceof DOMElement) {
+                        $text = trim(preg_replace('/\s+/', ' ', $head->textContent ?? ''));
+                    }
+                }
+                $label = $text !== '' ? $text : $id;
+            }
+
+            $label = wp_strip_all_tags($label);
+            if (function_exists('mb_strlen') && function_exists('mb_substr') && mb_strlen($label) > 140) {
+                $label = mb_substr($label, 0, 137) . '…';
+            } elseif (strlen($label) > 140) {
+                $label = substr($label, 0, 137) . '…';
+            }
+
+            // Evita contenedores genéricos vacíos
+            if (in_array($tag, ['div','section','article','main','aside']) && $label === $id) {
+                continue;
+            }
+
+            $items[] = ['label'=>$label,'id'=>$id,'tag'=>$tag];
+        }
+    }
+
+    // —— INTENTO 2: Fallback por REGEX (si no hay DOM o no encontró nada)
+    if (empty($items)) {
+        // Toma todos los id="..."
+        if (preg_match_all('/\sid\s*=\s*([\'"])(.*?)\1/i', $content, $m)) {
+            $seen = [];
+            foreach ($m[2] as $id_raw) {
+                $id = sanitize_title($id_raw);
+                if ($id === '' || isset($seen[$id])) continue;
+                $seen[$id] = true;
+                $items[] = ['label'=>$id, 'id'=>$id, 'tag'=>'unknown'];
+            }
+        }
+    }
+
+    // Guarda JSON (o vacío)
+    $json = !empty($items) ? wp_json_encode($items, JSON_UNESCAPED_UNICODE) : '';
+    thd_nav_update_acf($post_id, $json);
+
+    // Aviso en admin para validar rápidamente
+    if (is_admin() && current_user_can('manage_options')) {
+        set_transient('_thd_nav_notice_'.$post_id, (!empty($items) ? count($items) : 0), 60);
+        add_action('admin_notices', function() use ($post_id){
+            if ($n = get_transient('_thd_nav_notice_'.$post_id)) {
+                delete_transient('_thd_nav_notice_'.$post_id);
+                echo '<div class="notice notice-success is-dismissible"><p><strong>Navegación:</strong> guardados '.$n.' anchors en ACF (<code>'.esc_html(THD_NAV_ACF_FIELD).'</code>).</p></div>';
+            }
+        });
+    }
+}, 20, 3);
+
+/**
+ * Actualiza el campo ACF por name o key; si no hay ACF, guarda meta normal.
+ */
+function thd_nav_update_acf($post_id, $value){
+    // ACF presente
+    if (function_exists('update_field')) {
+        // Si THD_NAV_ACF_FIELD es una KEY (comienza con "field_"), ACF la reconoce siempre.
+        // Si es NAME, requiere que el campo exista y tenga ese name.
+        @update_field(THD_NAV_ACF_FIELD, $value, $post_id);
+    }
+    // Espejo en meta plano para cualquier caso
+    update_post_meta($post_id, THD_NAV_ACF_FIELD, $value);
+}
+
+add_shortcode('post_navigator', function(){
+    $post_id = get_the_ID();
+    if (!$post_id) return '';
+
+    // Leer de ACF o meta
+    $json = function_exists('get_field')
+        ? get_field('field_navigator', $post_id)
+        : get_post_meta($post_id, 'field_navigator', true);
+
+    $items = json_decode((string)$json, true);
+    if (!is_array($items) || empty($items)) return '';
+
+    ob_start(); ?>
+<nav aria-label="<?php echo esc_attr__('Navegación del artículo'); ?>">
+    <ol>
+        <?php foreach ($items as $it):
+            $label = isset($it['label']) ? $it['label'] : '';
+            $id    = isset($it['id'])    ? $it['id']    : '';
+            if (!$label || !$id) continue; ?>
+        <li>
+            <a href="#<?php echo esc_attr($id); ?>">
+                <?php echo esc_html($label); ?>
+            </a>
+        </li>
+        <?php endforeach; ?>
+    </ol>
+</nav>
+<?php
+    return ob_get_clean();
+});
