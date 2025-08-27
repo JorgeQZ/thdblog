@@ -58,24 +58,57 @@ $id = get_the_ID();
         </div>
         <div class="aside">
             <div class="excerpt">
+                <?php
+                $tags = get_the_terms(get_the_ID(), 'post_tag');
+
+            if (!empty($tags) && !is_wp_error($tags)) :
+                // Opcional: limita cuántas etiquetas mostrar
+                $max_tags = 12;
+                $count = 0;
+                ?>
                 <div class="tags">
-                    <div class="tag">etiqueta</div>
-                    <div class="tag">etiqueta</div>
-                    <div class="tag">etiqueta</div>
-                    <div class="tag">etiqueta</div>
+                    <?php foreach ($tags as $tag) :
+                        if ($count++ >= $max_tags) {
+                            break;
+                        }
+                        $url = get_term_link($tag);
+                        ?>
+                    <a class="tag" href="<?php echo esc_url($url); ?>">
+                        <?php echo esc_html($tag->name); ?>
+                    </a>
+                    <?php endforeach; ?>
                 </div>
+                <?php
+            endif;
+            ?>
+
+                <?php
+            // Descripción corta (si la tienes en ACF) o fallback
+            $short = get_field('_short_description') ?: '';
+            ?>
+                <?php if ($short) : ?>
                 <div class="descipcion">
-                    Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas, beatae non quasi iusto expedita
-                    laudantium ducimus. Officiis, iure. Recusandae cum perferendis illo accusantium veniam in esse
-                    deleniti temporibus rerum adipisci.
+                    <?php echo wp_kses_post($short); ?>
                 </div>
+                <?php endif; ?>
             </div>
+
+
+            <?php
+                    $output = do_shortcode('[post_navigator]');
+            if (trim($output) !== ''):
+                ?>
             <div class="navegacion">
                 <p class="aside-title">
                     Navegación
                 </p>
-                <?php echo do_shortcode('[post_navigator]'); ?>
+                <?php echo $output; ?>
             </div>
+            <?php else:
+                echo '<!-- [post_navigator] no devolvió contenido -->';
+            endif;
+            ?>
+
             <div class="categorias">
                 <p class="aside-title">
                     Categorias relacionadas
@@ -189,7 +222,7 @@ $id = get_the_ID();
     </div>
     <?php
         endwhile;
-    endif;
+endif;
 ?>
 </div>
 <?php get_footer(); ?>

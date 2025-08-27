@@ -27,3 +27,19 @@
   });
 })();
 
+
+
+/**
+ * fucniones de archive
+ */
+
+(function () {
+    const controls = document.querySelector('.ba-controls');
+    if (!controls) return;
+    controls.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.matches('select')) {
+        controls.submit();
+      }
+    });
+  })();

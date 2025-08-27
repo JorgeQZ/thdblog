@@ -1,4 +1,10 @@
 @import "fonts";
+// Variables
+$rc-accent: #ff5a1f;
+$rc-gap: 16px;
+$rc-radius: 12px;
+$rc-border: 1px solid #eee;
+$rc-text-muted: #6b7280;
 
 .post-featured-image {
   margin-top: 50px;
@@ -83,28 +89,57 @@
 
 .nota {
   display: flex;
-  align-items: self-start;
+  align-items: flex-start;
   padding-top: 20px;
+  gap: 24px;
+
+  @media screen and (max-width: 1024px) {
+    flex-direction: column;
+  }
 
   .contenido {
-    width: calc(60% - 20px);
-    margin-right: 20px;
+    flex: 1 1 0%;
+    min-width: 0;
+
     text-align: justify;
-    a{
+
+    a {
       color: $rc-accent;
     }
   }
 
   .aside {
-    width: 40%;
+    flex: 0 0 340px;
+    max-width: 380px;
+    position: sticky;
+    top: 24px;
+    align-self: flex-start;
+    height: max-content;
 
-    .excerpt {
+    @media screen and (max-width: 1024px) {
+      position: static; // sin sticky en pantallas pequeñas
+      top: auto;
+      flex: 0 1 auto;
+      max-width: none;
+    }
+
+    .excerpt,
+    .navegacion,
+    .categorias {
       width: 100%;
       display: block;
       padding: 20px;
       background-color: #e5e5e5;
       box-sizing: border-box;
       margin-bottom: 30px;
+    }
+
+    .navegacion ol {
+      padding-left: 15px;
+    }
+
+    .excerpt {
+
 
       .tags {
         display: flex;
@@ -117,6 +152,11 @@
           margin-right: 5px;
           margin-bottom: 5px;
           text-transform: uppercase;
+          color: #fff;
+          text-decoration: none;
+          &:hover{
+            background-color: darken(#f96302, 1);
+          }
         }
       }
 
@@ -125,21 +165,8 @@
       }
     }
 
-    .navegacion {
-      display: block;
-      padding: 20px;
-      background-color: #e5e5e5;
-      margin-bottom: 30px;
-
-      ol {
-        padding-left: 15px;
-      }
-    }
-
     .categorias {
-      display: block;
-      padding: 20px;
-      background-color: #e5e5e5;
+
 
       .grid {
         display: grid;
@@ -151,7 +178,6 @@
           align-items: center;
           justify-content: center;
           height: 200px;
-          background-color: red;
         }
       }
     }
@@ -162,12 +188,7 @@
   }
 }
 
-// Variables
-$rc-accent: #ff5a1f; // naranja THD (ajústalo)
-$rc-gap: 16px;
-$rc-radius: 12px;
-$rc-border: 1px solid #eee;
-$rc-text-muted: #6b7280;
+
 
 .rc {
   position: relative;
@@ -238,6 +259,7 @@ $rc-text-muted: #6b7280;
   }
 
   &__fade {
+
     &::before,
     &::after {
       content: "";

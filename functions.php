@@ -1,39 +1,27 @@
 <?php
 
 if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly
+    exit;
 }
+require_once __DIR__ . '/inc/get_posts.php';
+require_once __DIR__ . '/inc/jtw_token.php';
+require_once __DIR__ . '/inc/get_posttaxonomies.php';
+require_once __DIR__ . '/inc/client_api.php';
+require_once __DIR__ . '/inc/get_tags.php';
 
-require_once __DIR__ . '/inc/get_posts.php'; // Include the file that registers the REST API endpoint for posts
-require_once __DIR__ . '/inc/jtw_token.php'; // Include the file that handles JWT token validation
-require_once __DIR__ . '/inc/get_posttaxonomies.php'; // Include the file that registers the REST API endpoint for post taxonomies
-require_once __DIR__ . '/inc/client_api.php'; // Include the file that handles API
-require_once __DIR__ . '/inc/get_tags.php'; // Include the file that registers the REST API endpoint for tags
-add_theme_support('post-thumbnails'); // Enable post thumbnails support for the theme
+add_theme_support('post-thumbnails');
 
-
-// Enable CORS for REST API requests
-// This code allows cross-origin requests to the REST API, enabling access from different domains.
 add_action('init', function () {
-    // $allowed = [get_site_url()];
-    // if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed, true)) {
-    //     header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
-    //     header('Access-Control-Allow-Methods: GET, OPTIONS');
-    //     header('Access-Control-Allow-Headers: Content-Type');
-    // }
-
     if (isset($_SERVER['HTTP_ORIGIN'])) {
         header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
         header("Access-Control-Allow-Methods: GET, OPTIONS");
         header("Access-Control-Allow-Headers: Content-Type");
     }
-
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         status_header(200);
         exit;
     }
 });
-// Soportes básicos de tema
 function thdblog_theme_setup()
 {
     add_theme_support('title-tag');
@@ -53,24 +41,18 @@ function thdblog_theme_setup()
             ),
         ),
     ));
-
     add_theme_support('menus');
     add_theme_support('html5', array('search-form', 'comment-form', 'comment-list', 'gallery', 'caption'));
 }
 add_action('after_setup_theme', 'thdblog_theme_setup');
-
-
-// Enqueue de scripts y estilos
 function thdblog_enqueue_assets()
 {
-    // Encolar el CSS principal
     wp_enqueue_style(
         'thdblog-main',
         get_template_directory_uri() . '/css/main.css',
         array(),
         filemtime(get_template_directory() . '/css/main.css')
     );
-
     wp_enqueue_script(
         'thdblog-main-js',
         get_template_directory_uri() . '/js/main.js',
@@ -78,8 +60,14 @@ function thdblog_enqueue_assets()
         filemtime(get_template_directory() . '/js/main.js'),
         true
     );
-    // Aquí puedes agregar más scripts o estilos si lo necesitas
-
+    if (is_archive()) {
+        wp_enqueue_style(
+            'thdblog-archive',
+            get_template_directory_uri() . '/css/archive.css',
+            array('thdblog-main'),
+            filemtime(get_template_directory() . '/css/archive.css')
+        );
+    }
     if (is_single()) {
         wp_enqueue_style(
             'thdblog-single',
@@ -90,25 +78,20 @@ function thdblog_enqueue_assets()
     }
 }
 add_action('wp_enqueue_scripts', 'thdblog_enqueue_assets');
-
-
 /**
  *
  */
-
-// Relación: Guías de venta
 add_filter('acf/fields/relationship/query/name=related_posts_guias', function ($args, $field, $post_id) {
     $args['meta_query'] = [
         [
             'key'     => '_posttype',
-            'value'   => 'Buying Guide', // Coincide con el Value de tu select
+            'value'   => 'Buying Guide',
             'compare' => '='
         ]
     ];
     return $args;
 }, 10, 3);
 
-// Relación: Tutoriales
 add_filter('acf/fields/relationship/query/name=related_posts_tutoriales', function ($args, $field, $post_id) {
     $args['meta_query'] = [
         [
@@ -119,3 +102,29 @@ add_filter('acf/fields/relationship/query/name=related_posts_tutoriales', functi
     ];
     return $args;
 }, 10, 3);
+
+add_action('wp_footer', function () {
+    global $template;
+    echo '<!-- Current template: ' . esc_html(basename($template)) . ' -->';
+});
+
+add_action('pre_get_posts', function ($q) {
+    if (!is_admin() && $q->is_main_query() && $q->is_archive()) {
+
+        // Orden por título
+        $sort_title = isset($_GET['sort_title']) ? sanitize_text_field($_GET['sort_title']) : '';
+        if ($sort_title === 'asc' || $sort_title === 'desc') {
+            $q->set('orderby', 'title');
+            $q->set('order', strtoupper($sort_title));
+        }
+
+        // Orden por fecha (tiene prioridad si se envía)
+        $sort_date = isset($_GET['sort_date']) ? sanitize_text_field($_GET['sort_date']) : '';
+        if ($sort_date === 'asc' || $sort_date === 'desc') {
+            $q->set('orderby', 'date');
+            $q->set('order', strtoupper($sort_date));
+        }
+
+        // Si viene búsqueda dentro del archivo, ya viene el parámetro `s`
+    }
+});

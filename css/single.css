@@ -158,20 +158,56 @@
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;
-  -webkit-box-align: self-start;
-      -ms-flex-align: self-start;
-          align-items: self-start;
+  -webkit-box-align: start;
+      -ms-flex-align: start;
+          align-items: flex-start;
   padding-top: 20px;
+  gap: 24px;
+}
+@media screen and (max-width: 1024px) {
+  .nota {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+  }
 }
 .nota .contenido {
-  width: calc(60% - 20px);
-  margin-right: 20px;
+  -webkit-box-flex: 1;
+      -ms-flex: 1 1 0%;
+          flex: 1 1 0%;
+  min-width: 0;
   text-align: justify;
 }
-.nota .aside {
-  width: 40%;
+.nota .contenido a {
+  color: #ff5a1f;
 }
-.nota .aside .excerpt {
+.nota .aside {
+  -webkit-box-flex: 0;
+      -ms-flex: 0 0 340px;
+          flex: 0 0 340px;
+  max-width: 380px;
+  position: sticky;
+  top: 24px;
+  -ms-flex-item-align: start;
+      align-self: flex-start;
+  height: -webkit-max-content;
+  height: -moz-max-content;
+  height: max-content;
+}
+@media screen and (max-width: 1024px) {
+  .nota .aside {
+    position: static;
+    top: auto;
+    -webkit-box-flex: 0;
+        -ms-flex: 0 1 auto;
+            flex: 0 1 auto;
+    max-width: none;
+  }
+}
+.nota .aside .excerpt,
+.nota .aside .navegacion,
+.nota .aside .categorias {
   width: 100%;
   display: block;
   padding: 20px;
@@ -179,6 +215,9 @@
   -webkit-box-sizing: border-box;
           box-sizing: border-box;
   margin-bottom: 30px;
+}
+.nota .aside .navegacion ol {
+  padding-left: 15px;
 }
 .nota .aside .excerpt .tags {
   display: -webkit-box;
@@ -197,23 +236,14 @@
   margin-right: 5px;
   margin-bottom: 5px;
   text-transform: uppercase;
+  color: #fff;
+  text-decoration: none;
+}
+.nota .aside .excerpt .tags .tag:hover {
+  background-color: rgb(243.9406374502, 96.9884462151, 1.9593625498);
 }
 .nota .aside .excerpt .descipcion {
   margin-top: 10px;
-}
-.nota .aside .navegacion {
-  display: block;
-  padding: 20px;
-  background-color: #e5e5e5;
-  margin-bottom: 30px;
-}
-.nota .aside .navegacion ol {
-  padding-left: 15px;
-}
-.nota .aside .categorias {
-  display: block;
-  padding: 20px;
-  background-color: #e5e5e5;
 }
 .nota .aside .categorias .grid {
   display: grid;
@@ -231,7 +261,6 @@
       -ms-flex-pack: center;
           justify-content: center;
   height: 200px;
-  background-color: red;
 }
 .nota .aside .aside-title {
   font-family: "Helvetica Neue LT Std BdCn";

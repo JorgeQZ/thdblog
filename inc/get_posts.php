@@ -27,33 +27,133 @@ function blog_get_posts($request)
     foreach ($query->posts as $post) {
         $id = $post->ID;
         $author_id = $post->post_author;
-        $get_meta = fn($key) => get_post_meta($id, $key, true);
+        $get_meta = fn ($key) => get_post_meta($id, $key, true);
+<?php
+// Helpers
+$meta = function($id, $key) {
+    $v = get_post_meta($id, $key, true);
+    return is_string($v) && $v !== '' ? $v : (is_array($v) ? $v : null);
+};
+$meta_json = function($id, $key) use ($meta) {
+    $raw = $meta($id, $key);
+    if (!$raw) return null;
+    if (is_array($raw)) return $raw;
+    $d = json_decode($raw, true);
+    return $d ?: null;
+};
+$nulls = function($v) {
+    // Convierte null/false/'' en string 'null' para mantener tu contrato actual
+    return ($v === null || $v === false || $v === '') ? 'null' : $v;
+};
+$gallery_to_array = function($raw) {
+    if (!$raw) return [];
+    if (is_array($raw)) return array_values(array_filter($raw));
+    $json = json_decode($raw, true);
+    if (is_array($json)) return array_values(array_filter($json));
+    // fallback: coma o saltos de línea
+    $parts = preg_split('/[\r\n,]+/', (string)$raw);
+    return array_values(array_filter(array_map('trim', $parts)));
+};
+$collect_related = function($id) {
+    $ids = [];
+    if (function_exists('get_field')) {
+        $gv = get_field('guias_de_venta', $id);
+        if (!empty($gv['related_posts_guias'])) {
+            $ids = array_merge($ids, array_map('intval', (array)$gv['related_posts_guias']));
+        }
+        $tt = get_field('related_posts_tutoriales', $id);
+        if (!empty($tt['related_posts_tutoriales'])) {
+            $ids = array_merge($ids, array_map('intval', (array)$tt['related_posts_tutoriales']));
+        }
+    }
+    return array_values(array_unique(array_filter($ids)));
+};
+?>
 
-        $posts[] = [
-            'id' => $id,
-            'date' => $post->post_date,
-            'modified' => $post->post_modified,
-            'status' => $post->post_status,
-            'link' => get_permalink($post),
-            'postType' => $get_meta('_posttype') ?: 'Tutorial',
-            'title' => get_the_title($post),
-            'author' => get_the_author_meta('display_name', $author_id),
-            'authorDescription' => get_the_author_meta('description', $author_id) ?: 'null',
-            'steps' => get_post_meta($id, 'how-to__steps', true) ?: 'null',
-            'difficulty' => $get_meta('_difficulty') ?: 'null',
-            'duration' => estimate_post_duration($id),
-            'thumbnail' => get_the_post_thumbnail_url($id, 'medium') ?: 'null',
-            'mainImage' => get_the_post_thumbnail_url($id, 'full') ?: 'null',
-            'shortDescription' => $get_meta('_short_description') ?: 'null',
-            'video' => $get_meta('_video_url') ?: 'null',
-            'categories' => wp_get_post_categories($id),
-            'tags' => array_map(function ($tag) {return $tag->name;}, wp_get_post_tags($id)),
-            'navigator' => generate_navigator_from_steps($id) ?: 'null',
-            // 'relatedPosts' => get_related_posts($id) ?: 'null',
-            'attributes' => json_decode($get_meta('_attributes')) ?: 'null',
-            'content' => wp_kses_post($post->post_content),
+<?php
+// ... dentro de tu loop:
+$author_id = $post->post_author;
+$id        = $post->ID;
 
-        ];
+// Fallbacks de imágenes
+$thumb = get_the_post_thumbnail_url($id, 'medium');
+$main  = get_the_post_thumbnail_url($id, 'full');
+$ogimg = $meta($id, '_og_image') ?: $main ?: $thumb;
+$twimg = $meta($id, '_twitter_image') ?: $ogimg ?: $main ?: $thumb;
+
+// Gallery
+$gallery = $gallery_to_array($meta($id, '_gallery_images'));
+
+// Breadcrumb/pagination JSON
+$breadcrumb = $meta_json($id, '_structured_breadcrumb');
+$schema_ld  = $meta_json($id, '_schema_json');
+
+// Related (IDs)
+$related = $collect_related($id);
+
+$posts[] = [
+    // Core
+    'id'               => $id,
+    'date'             => $post->post_date,
+    'modified'         => $post->post_modified,
+    'status'           => $post->post_status,
+    'link'             => get_permalink($post),
+    'postType'         => $meta($id, '_posttype') ?: 'Tutorial',
+    'title'            => get_the_title($post),
+    'author'           => get_the_author_meta('display_name', $author_id),
+    'authorDescription'=> $nulls(get_the_author_meta('description', $author_id)),
+    'difficulty'       => $nulls($meta($id, '_difficulty')),
+    'duration'         => estimate_post_duration($id),
+    'thumbnail'        => $nulls($thumb),
+    'mainImage'        => $nulls($main),
+    'shortDescription' => $nulls($meta($id, '_short_description')),
+    'video'            => $nulls($meta($id, '_video_url')), // si es múltiple, guarda JSON en _video_url
+    'categories'       => wp_get_post_categories($id),
+    'tags'             => array_map(function($t){ return $t->name; }, wp_get_post_tags($id)),
+    'navigator'        => $nulls(function_exists('generate_navigator_from_steps') ? generate_navigator_from_steps($id) : null),
+    'relatedPosts'     => !empty($related) ? $related : 'null',
+    'content'          => wp_kses_post($post->post_content),
+
+    // SEO básicos
+    'seoTitle'         => $nulls($meta($id, '_seo_title')),
+    'metaDescripcion'  => $nulls($meta($id, '_meta_description')),
+    'metaKeywords'     => $nulls($meta($id, '_meta_keywords')),
+    'canonicalUrl'     => $nulls($meta($id, '_canonical_url')),
+    'robotsDirectives' => $nulls($meta($id, '_robots_directives')),
+
+    // Open Graph
+    'ogTitle'          => $nulls($meta($id, '_og_title') ?: get_the_title($id)),
+    'ogDescription'    => $nulls($meta($id, '_og_description') ?: $meta($id, '_short_description')),
+    'ogImage'          => $nulls($ogimg),
+    'ogType'           => $nulls($meta($id, '_og_type') ?: 'article'),
+    'ogUrl'            => $nulls($meta($id, '_og_url') ?: get_permalink($id)),
+
+    // Twitter Card
+    'twitterCardType'  => $nulls($meta($id, '_twitter_card_type') ?: 'summary_large_image'),
+    'twitterTitle'     => $nulls($meta($id, '_twitter_title') ?: get_the_title($id)),
+    'twitterDescription'=> $nulls($meta($id, '_twitter_description') ?: $meta($id, '_short_description')),
+    'twitterImage'     => $nulls($twimg),
+    'twitterCreator'   => $nulls($meta($id, '_twitter_creator')),
+
+    // SEO Avanzados
+    'schemaType'           => $nulls($meta($id, '_schema_type') ?: 'Article'),
+    'schemaJson'           => $schema_ld ?: 'null',
+    'focusKeyword'         => $nulls($meta($id, '_focus_keyword')),
+    'metaRobotsAdvanced'   => $nulls($meta($id, '_meta_robots_advanced')),
+    'metaViewport'         => $nulls($meta($id, '_meta_viewport')),
+    'canonicalAlternate'   => $nulls($meta($id, '_canonical_alternate')),
+    'altTextMainImage'     => $nulls($meta($id, '_alt_text_main_image')),
+    'imageCaption'         => $nulls($meta($id, '_image_caption')),
+    'videoTranscript'      => $nulls($meta($id, '_video_transcript')),
+    'galleryImages'        => !empty($gallery) ? $gallery : [],
+    'metaRefresh'          => $nulls($meta($id, '_meta_refresh')),
+    'structuredBreadcrumb' => $breadcrumb ?: 'null',
+    'pagination'           => [
+        'prev' => $nulls($meta($id, '_pagination_prev')),
+        'next' => $nulls($meta($id, '_pagination_next')),
+    ],
+];
+
     }
 
     return [
@@ -65,8 +165,9 @@ function blog_get_posts($request)
     ];
 }
 
-function generate_navigator_from_steps($post_id){
-      // Leer el JSON desde el campo ACF (o desde post_meta directo)
+function generate_navigator_from_steps($post_id)
+{
+    // Leer el JSON desde el campo ACF (o desde post_meta directo)
     $json = function_exists('get_field')
         ? get_field('field_navigator', $post_id)
         : get_post_meta($post_id, 'field_navigator', true);
@@ -210,10 +311,14 @@ function blog_get_clean_pages($request)
 if (!defined('THD_NAV_ACF_FIELD')) {
     define('THD_NAV_ACF_FIELD', 'field_navigator'); // NAME por defecto
 }
-add_action('save_post', function( $post_id, $post, $update ){
-    if ( wp_is_post_autosave($post_id) || wp_is_post_revision($post_id) ) return;
-    if ( ! current_user_can('edit_post', $post_id) ) return;
-    if ( empty($post) || empty($post->post_content) ) {
+add_action('save_post', function ($post_id, $post, $update) {
+    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+        return;
+    }
+    if (! current_user_can('edit_post', $post_id)) {
+        return;
+    }
+    if (empty($post) || empty($post->post_content)) {
         thd_nav_update_acf($post_id, '');
         return;
     }
@@ -234,10 +339,14 @@ add_action('save_post', function( $post_id, $post, $update ){
         foreach ($nodes as $node) {
             /** @var DOMElement $node */
             $id_raw = trim($node->getAttribute('id'));
-            if ($id_raw === '') continue;
+            if ($id_raw === '') {
+                continue;
+            }
 
             $id = sanitize_title($id_raw);
-            if ($id === '' || isset($seen[$id])) continue;
+            if ($id === '' || isset($seen[$id])) {
+                continue;
+            }
             $seen[$id] = true;
 
             $tag = strtolower($node->tagName);
@@ -271,7 +380,7 @@ add_action('save_post', function( $post_id, $post, $update ){
                 continue;
             }
 
-            $items[] = ['label'=>$label,'id'=>$id,'tag'=>$tag];
+            $items[] = ['label' => $label,'id' => $id,'tag' => $tag];
         }
     }
 
@@ -282,9 +391,11 @@ add_action('save_post', function( $post_id, $post, $update ){
             $seen = [];
             foreach ($m[2] as $id_raw) {
                 $id = sanitize_title($id_raw);
-                if ($id === '' || isset($seen[$id])) continue;
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
                 $seen[$id] = true;
-                $items[] = ['label'=>$id, 'id'=>$id, 'tag'=>'unknown'];
+                $items[] = ['label' => $id, 'id' => $id, 'tag' => 'unknown'];
             }
         }
     }
@@ -296,7 +407,7 @@ add_action('save_post', function( $post_id, $post, $update ){
     // Aviso en admin para validar rápidamente
     if (is_admin() && current_user_can('manage_options')) {
         set_transient('_thd_nav_notice_'.$post_id, (!empty($items) ? count($items) : 0), 60);
-        add_action('admin_notices', function() use ($post_id){
+        add_action('admin_notices', function () use ($post_id) {
             if ($n = get_transient('_thd_nav_notice_'.$post_id)) {
                 delete_transient('_thd_nav_notice_'.$post_id);
                 echo '<div class="notice notice-success is-dismissible"><p><strong>Navegación:</strong> guardados '.$n.' anchors en ACF (<code>'.esc_html(THD_NAV_ACF_FIELD).'</code>).</p></div>';
@@ -308,7 +419,8 @@ add_action('save_post', function( $post_id, $post, $update ){
 /**
  * Actualiza el campo ACF por name o key; si no hay ACF, guarda meta normal.
  */
-function thd_nav_update_acf($post_id, $value){
+function thd_nav_update_acf($post_id, $value)
+{
     // ACF presente
     if (function_exists('update_field')) {
         // Si THD_NAV_ACF_FIELD es una KEY (comienza con "field_"), ACF la reconoce siempre.
@@ -319,9 +431,11 @@ function thd_nav_update_acf($post_id, $value){
     update_post_meta($post_id, THD_NAV_ACF_FIELD, $value);
 }
 
-add_shortcode('post_navigator', function(){
+add_shortcode('post_navigator', function () {
     $post_id = get_the_ID();
-    if (!$post_id) return '';
+    if (!$post_id) {
+        return '';
+    }
 
     // Leer de ACF o meta
     $json = function_exists('get_field')
@@ -329,15 +443,19 @@ add_shortcode('post_navigator', function(){
         : get_post_meta($post_id, 'field_navigator', true);
 
     $items = json_decode((string)$json, true);
-    if (!is_array($items) || empty($items)) return '';
+    if (!is_array($items) || empty($items)) {
+        return '';
+    }
 
     ob_start(); ?>
 <nav aria-label="<?php echo esc_attr__('Navegación del artículo'); ?>">
     <ol>
         <?php foreach ($items as $it):
             $label = isset($it['label']) ? $it['label'] : '';
-            $id    = isset($it['id'])    ? $it['id']    : '';
-            if (!$label || !$id) continue; ?>
+            $id    = isset($it['id']) ? $it['id'] : '';
+            if (!$label || !$id) {
+                continue;
+            } ?>
         <li>
             <a href="#<?php echo esc_attr($id); ?>">
                 <?php echo esc_html($label); ?>

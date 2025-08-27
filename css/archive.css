@@ -1,0 +1,284 @@
+@charset "UTF-8";
+@font-face {
+  font-family: "Helvetica Neue LT Std";
+  src: url("../fonts/HelveticaNeueLTStd-Roman.eot");
+  src: url("../fonts/HelveticaNeueLTStd-Roman.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-Roman.woff2") format("woff2"), url("../fonts/HelveticaNeueLTStd-Roman.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-Roman.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std HvCn";
+  src: url("../fonts/HelveticaNeueLTStd-HvCn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-HvCn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-HvCn.woff2") format("woff2"), url("../fonts/HelveticaNeueLTStd-HvCn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-HvCn.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std Cn";
+  src: url("../fonts/HelveticaNeueLTStd-Cn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-Cn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-Cn.woff2") format("woff2"), url("../fonts/HelveticaNeueLTStd-Cn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-Cn.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std MdCn";
+  src: url("../fonts/HelveticaNeueLTStd-MdCn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-MdCn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-MdCn.woff2") format("woff2"), url("../fonts/HelveticaNeueLTStd-MdCn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-MdCn.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std LtCn";
+  src: url("../fonts/HelveticaNeueLTStd-LtCn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-LtCn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-LtCn.woff2") format("woff2"), url("../fonts/HelveticaNeueLTStd-LtCn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-LtCn.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std BlkCn";
+  src: url("../fonts/HelveticaNeueLTStd-BlkCn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-BlkCn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-BlkCn.woff2") format("woff2"), url("../fonts/HelveticaNeueLTStd-BlkCn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-BlkCn.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std BdCn";
+  src: url("../fonts/HelveticaNeueLTStd-BdCn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-BdCn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-BdCn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-BdCn.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std Bd";
+  src: url("../fonts/HelveticaNeueLTStd-Bd.eot");
+  src: url("../fonts/HelveticaNeueLTStd-Bd.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-Bd.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-Bd.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue LT Std Cn";
+  src: url("../fonts/HelveticaNeueLTStd-Cn.eot");
+  src: url("../fonts/HelveticaNeueLTStd-Cn.eot?#iefix") format("embedded-opentype"), url("../fonts/HelveticaNeueLTStd-Cn.woff") format("woff"), url("../fonts/HelveticaNeueLTStd-Cn.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+.banner {
+  width: 100%;
+  background-color: red;
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+  margin: 0;
+  min-height: 500px;
+  height: 50vh;
+  background-size: cover;
+  background-position: center center;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.banner .title {
+  font-size: 60px;
+  font-family: "Helvetica Neue LT Std HvCn";
+}
+
+.grid {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  gap: 24px;
+}
+
+/* Controles */
+.ba-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.ba-controls .ba-search {
+  position: relative;
+}
+.ba-controls .ba-search input {
+  width: 100%;
+  height: 44px;
+  padding: 0 44px 0 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.ba-controls .ba-search__btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+          transform: translateY(-50%);
+  height: 32px;
+  width: 32px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #999;
+}
+.ba-controls .ba-select select {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 14px;
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%);
+  background-position: calc(100% - 18px) 18px, calc(100% - 12px) 18px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+@media (max-width: 900px) {
+  .ba-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ba-controls .ba-select:last-child {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 640px) {
+  .ba-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Grid */
+.ba-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 1024px) {
+  .ba-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .ba-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card */
+.ba-card {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  border: 1px solid #eee;
+  background: #eee;
+}
+.ba-card__media {
+  display: block;
+}
+.ba-card__img {
+  width: 100%;
+  height: 190px;
+  -o-object-fit: cover;
+     object-fit: cover;
+  display: block;
+}
+.ba-card__body {
+  padding: 16px;
+  display: grid;
+  grid-template-areas: "title date" "excerpt excerpt" "cta cta";
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+}
+.ba-card__title {
+  grid-area: title;
+  font-family: "Helvetica Neue LT Std HvCn";
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 22px;
+  margin: 0;
+  line-height: 1.15;
+  padding-top: 20px;
+}
+.ba-card__title a {
+  color: #111;
+  text-decoration: none;
+}
+.ba-card__title a:hover {
+  color: #f96302;
+}
+.ba-card__date {
+  grid-area: date;
+  color: #666;
+  font-size: 12px;
+  align-self: start;
+  padding-top: 20px;
+}
+.ba-card__excerpt {
+  grid-area: excerpt;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+.ba-card__cta {
+  grid-area: cta;
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 700;
+  color: #f96302;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  padding-top: 20px;
+}
+
+.ba-empty {
+  color: #666;
+  margin: 16px 0;
+}
+
+/* Paginación */
+.ba-pagination {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  gap: 8px;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  margin-top: 24px;
+}
+.ba-pagination a,
+.ba-pagination span {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-decoration: none;
+  color: #333;
+  font-size: 14px;
+}
+.ba-pagination .current {
+  background: #f4f4f4;
+  border-color: #ccc;
+}

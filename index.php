@@ -1,4 +1,3 @@
-
 <?php
 get_header();
 
@@ -10,4 +9,3 @@ endif;
 
 get_footer();
 ?>
-

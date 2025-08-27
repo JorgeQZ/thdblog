@@ -1,6 +1,11 @@
 @import "header";
 @import "fonts";
 
+*{
+    scroll-behavior: smooth;
+    transition: all 300ms;
+}
+
 body, html{
     padding: 0;
     margin: 0;
