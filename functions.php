@@ -3,11 +3,16 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
 require_once __DIR__ . '/inc/get_posts.php';
 require_once __DIR__ . '/inc/jtw_token.php';
 require_once __DIR__ . '/inc/get_posttaxonomies.php';
 require_once __DIR__ . '/inc/client_api.php';
 require_once __DIR__ . '/inc/get_tags.php';
+
+// Cargar el bloque
+require_once __DIR__ . '/blocks/thd-categorias/index.php';
+
 
 add_theme_support('post-thumbnails');
 
@@ -22,6 +27,7 @@ add_action('init', function () {
         exit;
     }
 });
+
 function thdblog_theme_setup()
 {
     add_theme_support('title-tag');
@@ -60,7 +66,7 @@ function thdblog_enqueue_assets()
         filemtime(get_template_directory() . '/js/main.js'),
         true
     );
-    if (is_archive()) {
+    if (is_archive() || is_search()) {
         wp_enqueue_style(
             'thdblog-archive',
             get_template_directory_uri() . '/css/archive.css',
@@ -76,8 +82,41 @@ function thdblog_enqueue_assets()
             filemtime(get_template_directory() . '/css/single.css')
         );
     }
+
+    if (is_author()) {
+        wp_enqueue_style(
+            'thdblog-author',
+            get_template_directory_uri() . '/css/author.css',
+            array('thdblog-main'),
+            filemtime(get_template_directory() . '/css/author.css')
+        );
+    }
+
+    $ver = wp_get_theme()->get('Version') ?: '1.0.0';
+
+    wp_enqueue_script('thd-header-search', get_template_directory_uri() . '/js/header-search.js', [], $ver, true);
+
+    wp_localize_script('thd-header-search', 'THD_SEARCH', [
+        'rest' => esc_url_raw(rest_url('wp/v2/search')),
+        'home' => esc_url_raw(home_url('/')),
+        'labels' => [
+            'placeholder' => __('Buscar…', 'thd'),
+            'noResults'   => __('Sin resultados', 'thd'),
+            'seeAll'      => __('Ver todos los resultados', 'thd'),
+        ],
+        'maxSuggestions' => 6, // ajusta si quieres
+    ]);
 }
 add_action('wp_enqueue_scripts', 'thdblog_enqueue_assets');
+
+
+// === Incluir CPTs en resultados de la búsqueda clásica ===
+add_action('pre_get_posts', function ($q) {
+    if (!is_admin() && $q->is_main_query() && $q->is_search()) {
+        // Ajusta esta lista a tus CPTs
+        $q->set('post_type', ['post', 'page', 'venta_guiada', 'pks']);
+    }
+});
 /**
  *
  */

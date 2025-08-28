@@ -219,6 +219,17 @@
 .nota .aside .navegacion ol {
   padding-left: 15px;
 }
+.nota .aside .navegacion ol li {
+  padding: 5px 0;
+  margin: 5px 0;
+}
+.nota .aside .navegacion ol li a {
+  text-decoration: none;
+  color: #444;
+}
+.nota .aside .navegacion ol li a:hover {
+  color: #ff5a1f;
+}
 .nota .aside .excerpt .tags {
   display: -webkit-box;
   display: -ms-flexbox;
@@ -238,6 +249,7 @@
   text-transform: uppercase;
   color: #fff;
   text-decoration: none;
+  font-size: 14px;
 }
 .nota .aside .excerpt .tags .tag:hover {
   background-color: rgb(243.9406374502, 96.9884462151, 1.9593625498);

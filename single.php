@@ -42,7 +42,8 @@ $id = get_the_ID();
     <div class="nota-title"><?php the_title(); ?></div>
     <div class="grid">
         <div class="column">
-            <div class="autor">Por: <?php the_author(); ?></div>
+            <div class="autor">Por: <?php the_author_posts_link(); ?></div>
+
             <div class="fecha">Publicado <?php the_date(); ?></div>
         </div>
         <div class="column">

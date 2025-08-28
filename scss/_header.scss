@@ -1,4 +1,37 @@
+@import "var";
+@import "fonts";
+
 header{
-    background-color: orange;
-    height: 100px;
+    background-color: $orange;
+    .container{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        .custom-logo{
+            max-height: 60px;
+            width: auto;
+        }
+
+        .blog_name{
+            color: white;
+            font-size: 50px;
+            font-family: $ff-hvcn;
+            line-height: .6;
+            padding-top: 10px;
+        }
+
+        @media screen and (max-width: 1024px) {
+            .custom-logo{
+                margin-bottom: 10px;
+            }
+            flex-direction: column;
+            .blog_name{
+                text-align: center;
+                line-height: .8;
+                margin-bottom: 10px;
+            }
+        }
+    }
 }
+
+@import "search";

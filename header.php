@@ -10,5 +10,15 @@
 
 <body <?php body_class(); ?>>
     <header>
-
+        <div class="container">
+            <?php the_custom_logo();?>
+            <div class="blog_name"><?php bloginfo();?></div>
+            <div class="thd-search" data-thd-search>
+                <div id="thd-search-panel" class="thd-search__panel" hidden>
+                    <?php get_search_form(); ?>
+                    <div class="thd-search__suggestions" role="listbox"
+                        aria-label="<?php esc_attr_e('Sugerencias', 'thd'); ?>"></div>
+                </div>
+            </div>
+        </div>
     </header>

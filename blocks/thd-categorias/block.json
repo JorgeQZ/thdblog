@@ -1,0 +1,9 @@
+{
+  "apiVersion": 2,
+  "name": "thd/categorias-home",
+  "title": "THD · Categorías en Home",
+  "category": "widgets",
+  "editorScript": "thd-categorias-editor",
+  "style": "thd-categorias-style",
+  "render": "file:./render.php"
+}

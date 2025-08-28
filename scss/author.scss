@@ -1,0 +1,65 @@
+@import "var";
+@import "fonts";
+
+.container{
+    display: flex;
+    gap: 24px;
+
+
+
+     @media screen and (max-width: 768px){
+        flex-direction: column-reverse;
+        flex-wrap: wrap;
+    }
+
+    .column{
+        min-height: 60vh;
+        margin: 20px 0;
+        .name{
+            font-family: $ff-hvcn;
+            font-size: 50px;
+            line-height: .6;
+            margin-bottom: 0;
+            margin-top: 10px;
+        }
+
+        .job{
+            color: $orange;
+            font-family: $ff-ltcn;
+        }
+
+        &:first-child{
+            width: 60%;
+            @media screen and (max-width: 768px){
+                width: 100%;
+            }
+        }
+
+        &:last-child{
+            width: 40%;
+            @media screen and (max-width: 768px){
+                width: 100%;
+            }
+        }
+
+        .profile-cont{
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            img{
+                width: 100%;
+            }
+        }
+
+        .content{
+            margin: 20px 0;
+            .title{
+                color: $orange;
+                font-family: $ff-bdcn;
+            }
+            .desc{
+                font-size: 18px;
+            }
+        }
+    }
+}

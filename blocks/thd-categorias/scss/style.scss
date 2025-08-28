@@ -1,0 +1,125 @@
+@import "../../../scss/var";
+@import "../../../scss/fonts";
+// ==== Vars
+$thd-orange: #ff6a00;
+$thd-text:   #111;
+$thd-muted:  #6f6f6f;
+$thd-border: #e1e1e1;
+
+.thd-cat-title{
+  font-family: $ff-hvcn;
+  font-size: 50px;
+}
+// ==== Grid (si lo usas en listado)
+.ba-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:18px;
+  margin-bottom: 30px;
+
+  @media (max-width: 900px){ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  @media (max-width: 600px){ grid-template-columns: 1fr; }
+}
+
+// ==== Card
+.ba-card{
+  background:#fff;
+  border:1px solid $thd-border;
+  box-shadow: 0 1px 0 rgba(0,0,0,.03);
+  overflow:hidden;
+  transition: box-shadow .2s ease, transform .2s ease;
+    background:#eee;
+
+
+  &:hover{
+    box-shadow: 0 8px 22px rgba(0,0,0,.08);
+    transform: translateY(-2px);
+  }
+
+  // Media (imagen)
+  &__media{
+    display:block;
+    overflow:hidden;
+    background:#f2f2f2;
+
+    .ba-card__img{
+      display:block;
+      width:100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      transition: transform .35s ease;
+      background:#eee;
+    }
+  }
+  &:hover .ba-card__img{ transform: scale(1.02); }
+
+  // Cuerpo gris con línea naranja
+  &__body{
+    position:relative;
+    background:#eee;
+    padding: 42px 22px 20px;
+    border-top:4px solid $thd-orange;
+  }
+
+  // Fecha arriba derecha
+  &__date{
+    position:absolute;
+    top:42px;
+    right:22px;
+    font-size:.82rem;
+    color:$thd-muted;
+    white-space:nowrap;
+  }
+
+  // Título naranja, mayúsculas
+  &__title{
+    margin:0 0 10px;
+    line-height:1.15;
+    // deja espacio para la fecha
+    padding-right:120px;
+    font-family: $ff-hvcn;
+    color: #111;
+
+    a{
+      color:$thd-orange;
+      text-decoration:none;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.3px;
+      color: #111;
+      font-size: 20px;
+
+      &:hover{ text-decoration:underline; color: #ff6a00; }
+    }
+  }
+
+  // Extracto
+  &__excerpt{
+    margin:0 0 14px;
+    color:#3a3a3a;
+    font-size:1rem;
+    line-height:1.6;
+  }
+
+  // CTA "VER NOTA"
+  &__cta{
+    display:inline-block;
+    color:$thd-orange;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.2px;
+    text-decoration:underline;
+  }
+}
+
+.thd-btn{
+  background-color: $thd-orange;
+  padding: 10px;
+  margin: 0 auto;
+  display: block;
+  width: fit-content;
+  font-size: 14px;
+    text-decoration: none;
+    color: white;
+
+}
