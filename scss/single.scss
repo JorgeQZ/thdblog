@@ -121,6 +121,7 @@ $rc-text-muted: #6b7280;
       top: auto;
       flex: 0 1 auto;
       max-width: none;
+      min-width: 100%;
     }
 
     .excerpt,
@@ -293,79 +294,6 @@ $rc-text-muted: #6b7280;
     &::after {
       right: 0;
       background: linear-gradient(270deg, #fff 0, rgba(255, 255, 255, 0));
-    }
-  }
-}
-
-// Card
-.rc-card {
-  border: $rc-border;
-  overflow: hidden;
-  background: #fff;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-
-  &__media {
-    display: block;
-  }
-
-  &__img {
-    width: 100%;
-    height: 170px;
-    object-fit: cover;
-    background: #f3f4f6;
-    display: block;
-  }
-
-  &__body {
-    padding: 18px 14px 16px;
-    background-color: #eeeeee;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  &__tag {
-    font-size: 12px;
-    line-height: 1.2;
-    font-weight: 800;
-    color: $rc-accent;
-    margin-bottom: 6px;
-    font-family: $ff-hvcn;
-  }
-
-  &__title {
-    font-size: 24px;
-    line-height: 1.1;
-    font-weight: 800;
-    margin: 0 0 10px;
-    font-family: $ff-hvcn;
-    text-transform: uppercase;
-
-    a {
-      text-decoration: none;
-      color: inherit;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-  }
-
-  &__excerpt {
-    font-size: 18px;
-    color: $rc-text-muted;
-    line-height: 1.45;
-    margin: 0;
-  }
-}
-
-// Responsive
-@media (max-width: 768px) {
-  .rc {
-    &__slide {
-      flex-basis: 78vw;
     }
   }
 }

@@ -21,9 +21,21 @@ $card-gap: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    &:before{
+        content: '';
+        top: 0;
+        left: 0;
+        background-color: rgba(black, 0.3);
+        position: absolute;
+        width: 100%;
+        height: 100%;
+    }
     .title{
         font-size: 60px;
         font-family: $ff-hvcn;
+        color: #fff;
+        z-index: 1;
     }
 }
 

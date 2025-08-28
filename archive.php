@@ -1,11 +1,48 @@
-<?php get_header(); ?>
-<div class="banner"
-    style="background-image: url(<?php echo get_template_directory_uri().'/img/banner-default.jpg'; ?>)">
+<?php get_header();
+// —— Resolver URL del background desde ACF
+$default_bg = get_template_directory_uri() . '/img/banner-default.jpg';
+$bg_url     = $default_bg;
+
+// Obtener objeto actual de archivo/taxonomía
+$term = get_queried_object();
+
+// Validar que sea un término (categoría, etiqueta u otra taxonomía)
+if ($term && isset($term->term_id) && isset($term->taxonomy)) {
+
+    // 1) Campo URL directo (ej. imagen_como_url)
+    $acf_url = get_field('imagen_como_url', $term->taxonomy . '_' . $term->term_id);
+    if (is_string($acf_url)) {
+        $acf_url = trim($acf_url);
+        if ($acf_url !== '' && filter_var($acf_url, FILTER_VALIDATE_URL)) {
+            $bg_url = $acf_url;
+        }
+    }
+
+    // 2) Campo Imagen/Archivo (ej. imagen)
+    if ($bg_url === $default_bg) {
+        $acf_img = get_field('imagen', $term->taxonomy . '_' . $term->term_id);
+
+        if (!empty($acf_img)) {
+            if (is_array($acf_img) && !empty($acf_img['url'])) {
+                $bg_url = $acf_img['url'];
+            } elseif (is_numeric($acf_img)) {
+                $maybe = wp_get_attachment_image_url((int)$acf_img, 'full');
+                if ($maybe) {
+                    $bg_url = $maybe;
+                }
+            } elseif (is_string($acf_img) && filter_var($acf_img, FILTER_VALIDATE_URL)) {
+                $bg_url = $acf_img;
+            }
+        }
+    }
+}
+?>
+
+<div class="banner" style="background-image:url('<?php echo esc_url($bg_url); ?>')">
     <div class="title">
         <?php the_archive_title(); ?>
     </div>
 </div>
-
 <div class="container">
     <div class="filters-cont">
         <form class="ba-controls" method="get" action="">

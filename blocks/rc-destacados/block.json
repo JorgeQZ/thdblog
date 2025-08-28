@@ -1,0 +1,34 @@
+{
+  "apiVersion": 3,
+  "name": "thd/rc-destacados",
+  "title": "Carrusel Destacados (RC)",
+  "category": "widgets",
+  "icon": "slides",
+  "description": "Carrusel de posts marcados en la categoría 'Destacado' (Tutorial o Guía de Venta).",
+  "keywords": [
+    "carrusel",
+    "destacado",
+    "tutorial",
+    "guía de venta"
+  ],
+  "textdomain": "thd",
+  "supports": {
+    "html": false,
+    "align": [
+      "wide",
+      "full"
+    ]
+  },
+  "attributes": {
+    "termino": {
+      "type": "string",
+      "default": "guia-de-venta-destacada"
+    },
+    "postsPerPage": {
+      "type": "number",
+      "default": 8
+    }
+  },
+  "editorScript": "file:./index.js",
+  "style": "file:./css/style.css"
+}

@@ -12,6 +12,7 @@ require_once __DIR__ . '/inc/get_tags.php';
 
 // Cargar el bloque
 require_once __DIR__ . '/blocks/thd-categorias/index.php';
+require_once __DIR__ . '/blocks/rc-destacados/index.php';
 
 
 add_theme_support('post-thumbnails');
@@ -166,4 +167,57 @@ add_action('pre_get_posts', function ($q) {
 
         // Si viene búsqueda dentro del archivo, ya viene el parámetro `s`
     }
+});
+
+
+// —————————— TAXONOMÍA: destacado + términos por defecto ——————————
+add_action('init', function () {
+    // Registrar taxonomía 'destacado' para posts
+    if (!taxonomy_exists('destacado')) {
+        register_taxonomy(
+            'destacado',
+            ['post'],
+            [
+        'labels' => [
+            'name'          => __('Destacado', 'thd'),
+            'singular_name' => __('Destacado', 'thd'),
+        ],
+        'public'            => true,
+        'show_ui'           => true,
+        'show_in_rest'      => true,
+        'hierarchical'      => true,   // ✅ ahora se comporta como categoría
+        'show_admin_column' => true,
+        'rewrite'           => ['slug' => 'destacado'],
+    ]
+        );
+    }
+
+    // Asegurar términos: "Tutorial Destacado" y "Guía de Venta Destacada"
+    if (taxonomy_exists('destacado')) {
+        $terms_needed = [
+            'tutorial-destacado'        => 'Tutorial Destacado',
+            'guia-de-venta-destacada'   => 'Guía de Venta Destacada',
+        ];
+        foreach ($terms_needed as $slug => $name) {
+            if (!term_exists($slug, 'destacado')) {
+                wp_insert_term($name, 'destacado', ['slug' => $slug]);
+            }
+        }
+    }
+}, 0);
+
+// —————————— REGISTRO DEL BLOQUE ——————————
+add_action('init', function () {
+    $block_dir = get_template_directory() . '/blocks/rc-destacados';
+    if (!file_exists($block_dir . '/block.json')) {
+        return;
+    }
+
+    // Incluir el render
+    require_once $block_dir . '/render.php';
+
+    // Registrar bloque desde metadata con callback explícito
+    register_block_type_from_metadata($block_dir, [
+        'render_callback' => 'thd_render_rc_destacados_block',
+    ]);
 });
