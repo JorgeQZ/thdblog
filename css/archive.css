@@ -246,6 +246,8 @@
   font-size: 12px;
   align-self: start;
   padding-top: 20px;
+  top: 0;
+  position: absolute;
 }
 .ba-card__excerpt {
   grid-area: excerpt;

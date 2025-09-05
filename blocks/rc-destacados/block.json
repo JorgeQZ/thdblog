@@ -1,10 +1,10 @@
 {
   "apiVersion": 3,
   "name": "thd/rc-destacados",
-  "title": "Carrusel Destacados (RC)",
+  "title": "Carrusel Destacados (CR)",
   "category": "widgets",
   "icon": "slides",
-  "description": "Carrusel de posts marcados en la categoría 'Destacado' (Tutorial o Guía de Venta).",
+  "description": "Carrusel de posts marcados en la categoría 'Destacado'",
   "keywords": [
     "carrusel",
     "destacado",

@@ -1,3 +1,5 @@
 /**
 Template Name: THD - BLOG
 */
+
+.entry-content [id]{ scroll-margin-top: var(--header-offset,100px); }

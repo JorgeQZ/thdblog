@@ -75,39 +75,64 @@ if ($term && isset($term->term_id) && isset($term->taxonomy)) {
 
     <!-- Grid de tarjetas -->
     <div class="ba-grid">
-        <?php
-        if (have_posts()):
-            while (have_posts()):
-                the_post();
-                ?>
-        <article class="ba-card">
-            <a class="ba-card__media" href="<?php the_permalink(); ?>">
-                <img class="ba-card__img" src="<?php echo esc_url(get_template_directory_uri().'/img/portada.png'); ?>"
-                    alt="<?php the_title_attribute(); ?>">
-            </a>
+        <?php if (have_posts()) : while (have_posts()) : the_post();
 
-            <div class="ba-card__body">
-                <h3 class="ba-card__title">
-                    <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
-                </h3>
-                <time class="ba-card__date" datetime="<?php echo esc_attr(get_the_date('c')); ?>">
-                    <?php echo esc_html(get_the_date('d/m/Y')); ?>
-                </time>
-                <p class="ba-card__excerpt">
-                    <?php echo esc_html(wp_trim_words(get_the_excerpt() ?: wp_strip_all_tags(get_the_content()), 24, '…')); ?>
-                </p>
-                <a class="ba-card__cta" href="<?php the_permalink(); ?>">VER NOTA</a>
-            </div>
-        </article>
+            // — Imagen destacada o fallback
+            $size     = 'medium_large'; // ajusta al tamaño que uses en tu tema
+            $default  = get_template_directory_uri() . '/img/cover-default.jpg';
+            $img_url  = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(), $size) : $default;
+            if (!$img_url) {
+                $img_url = $default; // doble seguridad
+            }
 
-        <?php
-            endwhile;
-        else:
-            ?>
-        <p class="ba-empty">No se encontraron notas.</p>
+            // — ALT accesible
+            $img_alt = get_the_title();
+            if (has_post_thumbnail()) {
+                $thumb_id = get_post_thumbnail_id();
+                $alt_meta = get_post_meta($thumb_id, '_wp_attachment_image_alt', true);
+                if ($alt_meta !== '') {
+                    $img_alt = $alt_meta;
+                }
+            }
+
+            // — srcset (solo si hay destacada)
+            $srcset_attr = '';
+            if (has_post_thumbnail()) {
+                $srcset = wp_get_attachment_image_srcset($thumb_id, $size);
+                if ($srcset) {
+                    $srcset_attr = ' srcset="' . esc_attr($srcset) . '" sizes="(max-width: 800px) 100vw, 400px"';
+                }
+            }
+        ?>
+            <article class="ba-card">
+                <a class="ba-card__media" href="<?php the_permalink(); ?>">
+                    <img
+                        class="ba-card__img"
+                        src="<?php echo esc_url($img_url); ?>"
+                        alt="<?php echo esc_attr($img_alt); ?>"
+                        loading="lazy"
+                        decoding="async"
+                        <?php echo $srcset_attr; ?>
+                    >
+                </a>
+
+                <div class="ba-card__body">
+                    <h3 class="ba-card__title">
+                        <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+                    </h3>
+                    <time class="ba-card__date" datetime="<?php echo esc_attr(get_the_date('c')); ?>">
+                        <?php echo esc_html(get_the_date('d/m/Y')); ?>
+                    </time>
+                    <p class="ba-card__excerpt">
+                        <?php echo esc_html(wp_trim_words(get_the_excerpt() ?: wp_strip_all_tags(get_the_content()), 24, '…')); ?>
+                    </p>
+                    <a class="ba-card__cta" href="<?php the_permalink(); ?>">VER NOTA</a>
+                </div>
+            </article>
+        <?php endwhile; else : ?>
+            <p class="ba-empty">No se encontraron notas.</p>
         <?php endif; ?>
     </div>
-
     <!-- Paginación -->
     <nav class="ba-pagination">
         <?php echo paginate_links([ 'prev_text' => '«', 'next_text' => '»' ]);?>

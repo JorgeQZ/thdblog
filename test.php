@@ -2,27 +2,20 @@
 /**
  * Template Name: Test API
  */
-get_header();
+ $id = 8836;
+        $get_meta = fn($key) => get_post_meta($id, $key, true);
 
-$id = 8836;
-$get_meta = fn($key) => get_post_meta($id, $key, true);
-
-// echo "<pre>";
-// print_r($get_meta('_posttype'));
-// echo "</pre>";
-
-
-$endpoint = 'http://localhost:8888/blog/wp-json/auth/v1/token';
+$endpoint = 'http://localhost:8888/blog/wp-json/v1/token';
 
 $client_id = 'thd';
-$secret_key = '03d7609a9178867d342e390fdd04297f5a79736c9808b2365de42ec09c9d6c4d';
+$secret_key = 'd03d7609a9178867d342e390fdd04297f5a79736c9808b2365de42ec09c9d6c4d';
 $endpoint = 'http://localhost:8888/blog/wp-json/v1/posts';
-// // $endpoint = 'http://localhost:8888/blog/wp-json/v1/posttaxonomies';
-// // $endpoint = 'http://localhost:8888/blog/wp-json/v1/tags';
+// $endpoint = 'http://localhost:8888/blog/wp-json/blog/v1/posttaxonomies';
+// $endpoint = 'http://localhost:8888/blog/wp-json/blog/v1/tags';
 
 $headers = [
     'X-Client-ID: thd',
-    'X-Client-Secret: 03d7609a9178867d342e390fdd04297f5a79736c9808b2365de42ec09c9d6c4d',
+    'X-Client-Secret: d03d7609a9178867d342e390fdd04297f5a79736c9808b2365de42ec09c9d6c4d',
     'Content-Type: application/json'
 ];
 
@@ -45,5 +38,4 @@ $data = json_decode($response, true);
 
 echo "<pre>";
 print_r($data);
-// echo "</pre>";
-get_footer();
+echo "</pre>";

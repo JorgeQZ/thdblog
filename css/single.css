@@ -274,6 +274,27 @@
       -ms-flex-pack: center;
           justify-content: center;
   height: 200px;
+  background-size: cover;
+  background-position: center;
+  color: white;
+  text-decoration: none;
+  position: relative;
+  max-height: 120px;
+}
+.nota .aside .categorias .grid .item:before {
+  position: absolute;
+  content: "";
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.2);
+  -webkit-transition: all 300ms;
+  transition: all 300ms;
+}
+.nota .aside .categorias .grid .item:hover:before {
+  background-color: rgba(255, 90, 31, 0.6);
+}
+.nota .aside .categorias .grid .item .item__name {
+  position: relative;
 }
 .nota .aside .aside-title {
   font-family: "Helvetica Neue LT Std BdCn";

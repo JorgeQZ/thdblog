@@ -118,6 +118,7 @@
 .ba-card__media .ba-card__img {
   display: block;
   width: 100%;
+  max-height: 200px;
   aspect-ratio: 16/9;
   -o-object-fit: cover;
      object-fit: cover;
