@@ -1,33 +1,43 @@
 <?php
+
 /**
  * Auth helpers y endpoints (JWT HS256 + Client headers)
  * Nota: el archivo se llama jtw_token.php, pero lo correcto sería jwt_token.php
  */
 
-if (!defined('ABSPATH')) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /** =========================
  *  Utilidades Base64URL/JWT
  *  ========================= */
 if (!function_exists('thd_b64url_encode')) {
-    function thd_b64url_encode($data) {
+    function thd_b64url_encode($data)
+    {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 }
 if (!function_exists('thd_b64url_decode')) {
-    function thd_b64url_decode($data) {
+    function thd_b64url_decode($data)
+    {
         $data = strtr($data, '-_', '+/');
         $pad  = strlen($data) % 4;
-        if ($pad) $data .= str_repeat('=', 4 - $pad);
+        if ($pad) {
+            $data .= str_repeat('=', 4 - $pad);
+        }
         return base64_decode($data);
     }
 }
 
 /** Devuelve fila del cliente por client_id */
 if (!function_exists('thd_get_client_row')) {
-    function thd_get_client_row($client_id) {
+    function thd_get_client_row($client_id)
+    {
         global $wpdb;
-        if (!$client_id) return null;
+        if (!$client_id) {
+            return null;
+        }
         $table = $wpdb->prefix . 'api_clients';
         return $wpdb->get_row(
             $wpdb->prepare("SELECT client_id, secret_key FROM {$table} WHERE client_id = %s", $client_id)
@@ -37,7 +47,8 @@ if (!function_exists('thd_get_client_row')) {
 
 /** Construye un JWT HS256 */
 if (!function_exists('thd_jwt_sign')) {
-    function thd_jwt_sign(array $payload, $secret) {
+    function thd_jwt_sign(array $payload, $secret)
+    {
         $header = ['alg' => 'HS256', 'typ' => 'JWT'];
         $h = thd_b64url_encode(json_encode($header, JSON_UNESCAPED_SLASHES));
         $p = thd_b64url_encode(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -49,7 +60,8 @@ if (!function_exists('thd_jwt_sign')) {
 
 /** Verifica un JWT HS256 y devuelve el payload (array) o WP_Error */
 if (!function_exists('thd_jwt_verify')) {
-    function thd_jwt_verify($token) {
+    function thd_jwt_verify($token)
+    {
         if (!is_string($token) || substr_count($token, '.') !== 2) {
             return new WP_Error('jwt_malformed', 'Token mal formado');
         }
@@ -87,13 +99,18 @@ if (!function_exists('thd_jwt_verify')) {
 
 /** Valida por headers X-Client-ID / X-Client-Secret */
 if (!function_exists('validate_api_client')) {
-    function validate_api_client($request) {
+    function validate_api_client($request)
+    {
         $client_id = $request->get_header('X-Client-ID');
         $secret    = $request->get_header('X-Client-Secret');
-        if (!$client_id || !$secret) return false;
+        if (!$client_id || !$secret) {
+            return false;
+        }
 
         $row = thd_get_client_row(sanitize_text_field($client_id));
-        if (!$row) return false;
+        if (!$row) {
+            return false;
+        }
 
         // Si guardas el secret en texto plano:
         return hash_equals((string)$row->secret_key, (string)$secret);
@@ -110,13 +127,16 @@ if (!function_exists('validate_api_client')) {
  *  - o bien headers X-Client-ID + X-Client-Secret
  */
 if (!function_exists('blog_rest_permission_strict')) {
-    function blog_rest_permission_strict($request) {
+    function blog_rest_permission_strict($request)
+    {
         // 1) Bearer JWT
         $auth = $request->get_header('Authorization');
         if (is_string($auth) && stripos($auth, 'Bearer ') === 0) {
             $token = trim(substr($auth, 7));
             $ok = thd_jwt_verify($token);
-            if (!is_wp_error($ok)) return true;
+            if (!is_wp_error($ok)) {
+                return true;
+            }
         }
         // 2) Client headers
         if (validate_api_client($request)) {
@@ -131,7 +151,8 @@ if (!function_exists('blog_rest_permission_strict')) {
  * define uno que usa la versión estricta. (Evita colisiones.)
  */
 if (!function_exists('blog_rest_permission')) {
-    function blog_rest_permission($request) {
+    function blog_rest_permission($request)
+    {
         return blog_rest_permission_strict($request);
     }
 }
@@ -175,7 +196,9 @@ function blog_generate_token($request)
 
     $now = time();
     $ttl = (int)$request->get_param('ttl');
-    if ($ttl <= 0) $ttl = 3600;
+    if ($ttl <= 0) {
+        $ttl = 3600;
+    }
     $ttl = min($ttl, 86400); // máx 24h
 
     $payload = [

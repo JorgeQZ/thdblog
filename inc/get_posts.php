@@ -3,6 +3,8 @@ add_action('rest_api_init', function () {
     register_rest_route('v1', '/posts', [
         'methods'             => 'GET',
         'callback'            => 'blog_get_posts',
+         'permission_callback' => 'blog_rest_permission'
+
         // 'permission_callback' => '__return_true'
     ]);
 });
@@ -47,8 +49,12 @@ function blog_get_posts($request)
     };
     $meta_json = function ($id, $key) use ($meta) {
         $raw = $meta($id, $key);
-        if (!$raw) return null;
-        if (is_array($raw)) return $raw;
+        if (!$raw) {
+            return null;
+        }
+        if (is_array($raw)) {
+            return $raw;
+        }
         $d = json_decode($raw, true);
         return $d ?: null;
     };
@@ -57,10 +63,16 @@ function blog_get_posts($request)
         return ($v === null || $v === false || $v === '') ? 'null' : $v;
     };
     $gallery_to_array = function ($raw) {
-        if (!$raw) return [];
-        if (is_array($raw)) return array_values(array_filter($raw));
+        if (!$raw) {
+            return [];
+        }
+        if (is_array($raw)) {
+            return array_values(array_filter($raw));
+        }
         $json = json_decode($raw, true);
-        if (is_array($json)) return array_values(array_filter($json));
+        if (is_array($json)) {
+            return array_values(array_filter($json));
+        }
         $parts = preg_split('/[\r\n,]+/', (string)$raw);
         return array_values(array_filter(array_map('trim', $parts)));
     };
@@ -88,9 +100,9 @@ function blog_get_posts($request)
 
         // Imágenes con fallback
         $thumb = get_the_post_thumbnail_url($id, 'medium') ?: $default_cover;
-        $main  = get_the_post_thumbnail_url($id, 'full')   ?: $thumb;
-        $ogimg = $meta($id, '_og_image')       ?: $main ?: $thumb;
-        $twimg = $meta($id, '_twitter_image')  ?: $ogimg ?: $main ?: $thumb;
+        $main  = get_the_post_thumbnail_url($id, 'full') ?: $thumb;
+        $ogimg = $meta($id, '_og_image') ?: $main ?: $thumb;
+        $twimg = $meta($id, '_twitter_image') ?: $ogimg ?: $main ?: $thumb;
 
         // Galería
         $gallery = $gallery_to_array($meta($id, '_gallery_images'));
@@ -114,14 +126,16 @@ function blog_get_posts($request)
             $seen = [];
             foreach ($items as $it) {
                 $label = isset($it['label']) ? trim((string)$it['label']) : '';
-                $nid   = isset($it['id'])    ? trim((string)$it['id'])    : '';
+                $nid   = isset($it['id']) ? trim((string)$it['id']) : '';
                 if ($label && $nid) {
                     if (function_exists('thd_normalize_anchor')) {
                         $nid = thd_normalize_anchor($nid, $seen, defined('THD_ANCHOR_MAX') ? THD_ANCHOR_MAX : 45);
                         $seen[] = $nid;
                     } else {
                         // fallback mínimo
-                        if (strpos($nid, '#') !== false) $nid = substr($nid, strpos($nid, '#') + 1);
+                        if (strpos($nid, '#') !== false) {
+                            $nid = substr($nid, strpos($nid, '#') + 1);
+                        }
                         $nid = sanitize_title(ltrim($nid, '/'));
                     }
                     $navigator_array[] = '<a href="' . esc_url($base . '#' . $nid) . '">' . esc_html($label) . '</a>';
@@ -132,6 +146,7 @@ function blog_get_posts($request)
         // Contenido crudo + renderizado
         $content_raw = get_post_field('post_content', $id);
         $content_rendered = apply_filters('the_content', $content_raw);
+        $content_plain = thd_content_plain($content_raw);
 
         $posts[] = [
             // Core
@@ -145,7 +160,7 @@ function blog_get_posts($request)
             'author'             => get_the_author_meta('display_name', $author_id),
             'authorDescription'  => $nulls(get_the_author_meta('description', $author_id)),
             'difficulty'         => $nulls($meta($id, '_difficulty')),
-            'duration'           => estimate_post_duration($id),
+            'duration'           =>  $nulls($meta($id, '_duration')),
 
             // Imágenes (con fallback)
             'thumbnail'          => $nulls($thumb),
@@ -166,6 +181,8 @@ function blog_get_posts($request)
             // Contenidos
             'content'            => wp_kses_post($content_raw),
             'contentRendered'    => wp_kses_post($content_rendered),
+            'contentPlain' => $nulls($content_plain),
+
 
             // SEO básicos
             'seoTitle'           => $nulls($meta($id, '_seo_title')),
@@ -217,6 +234,33 @@ function blog_get_posts($request)
     ];
 }
 
+if (!function_exists('thd_content_plain')) {
+    function thd_content_plain($raw)
+    {
+        $text = (string) $raw;
+
+        // Quitar comentarios de bloques Gutenberg <!-- wp:... --> <!-- /wp:... -->
+        $text = preg_replace('/<!--\s*\/?wp:.*?-->/', '', $text);
+
+        // Quitar cualquier comentario HTML restante
+        $text = preg_replace('/<!--(?!<!)[^\[>].*?-->/', '', $text);
+
+        // Quitar shortcodes [shortcode]...[/shortcode]
+        $text = strip_shortcodes($text);
+
+        // Quitar todas las etiquetas HTML, script/style incl.
+        $text = wp_strip_all_tags($text, true);
+
+        // Decodificar entidades y normalizar espacios/line breaks
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\x{00A0}/u', ' ', $text); // &nbsp; → espacio normal
+        $text = preg_replace("/\r\n|\r/", "\n", $text);
+        $text = preg_replace("/\n{3,}/", "\n\n", $text); // compactar saltos múltiples
+        $text = trim($text);
+
+        return $text;
+    }
+}
 /** Related por tags/categorías (con preferencia a manual) */
 function get_related_posts($post_id, $limit = 4)
 {
@@ -254,15 +298,6 @@ function get_related_posts($post_id, $limit = 4)
     return !empty($query->posts) ? array_map('intval', $query->posts) : [];
 }
 
-/** Estimación de lectura (200 wpm) */
-function estimate_post_duration($post_id)
-{
-    $content    = strip_tags(get_post_field('post_content', $post_id));
-    $word_count = str_word_count($content);
-    $minutes    = max(1, (int) ceil($word_count / 200));
-    return $minutes . ' minuto' . ($minutes === 1 ? '' : 's');
-}
-
 /**
  * Endpoint REST para páginas limpias.
  */
@@ -270,7 +305,7 @@ add_action('rest_api_init', function () {
     register_rest_route('v1', '/pages', [
         'methods'             => 'GET',
         'callback'            => 'blog_get_clean_pages',
-        'permission_callback' => '__return_true',
+        'permission_callback' => 'blog_rest_permission'
     ]);
 });
 
@@ -318,11 +353,43 @@ function blog_get_clean_pages($request)
 if (!defined('THD_NAV_ACF_FIELD')) {
     define('THD_NAV_ACF_FIELD', 'field_navigator');
 }
+// 1) Helper: normaliza SIN bajar a minúsculas (preserva el case)
+if (!function_exists('thd_sanitize_anchor_preserve_case')) {
+    function thd_sanitize_anchor_preserve_case(string $raw): string
+    {
+        $id = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $id = trim($id);
+        $id = preg_replace('/\s+/u', '-', $id);                // espacios -> guiones
+        $id = preg_replace('/[^A-Za-z0-9\-\_:.]/u', '-', $id); // set permitido
+        $id = preg_replace('/-+/', '-', $id);                  // colapsa guiones
+        $id = trim($id, '-');
+        return $id !== '' ? $id : 'section';
+    }
+}
+
+// 2) Helper: hace único el ID preservando el case (case-insensitive para colisiones)
+if (!function_exists('thd_make_unique_anchor')) {
+    function thd_make_unique_anchor(string $base, array &$taken): string
+    {
+        $base = thd_sanitize_anchor_preserve_case($base);
+        $candidate = $base;
+        $i = 2;
+        while (isset($taken[strtolower($candidate)])) {
+            $candidate = $base . '-' . $i++;
+        }
+        $taken[strtolower($candidate)] = true;
+        return $candidate;
+    }
+}
 
 add_action('acf/save_post', function ($post_id) {
     $post = get_post($post_id);
-    if (!$post || $post->post_type === 'revision' || wp_is_post_autosave($post_id)) return;
-    if (!current_user_can('edit_post', $post_id)) return;
+    if (!$post || $post->post_type === 'revision' || wp_is_post_autosave($post_id)) {
+        return;
+    }
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
 
     if (empty($post->post_content)) {
         thd_nav_update_acf($post_id, '');
@@ -332,69 +399,72 @@ add_action('acf/save_post', function ($post_id) {
 
     $content = (string)$post->post_content;
     $items   = [];
+
     if (class_exists('DOMDocument')) {
         libxml_use_internal_errors(true);
         $dom  = new DOMDocument('1.0', 'UTF-8');
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>'.$content.'</body></html>';
-        $dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        $xp   = new DOMXPath($dom);
-        $nodes = $xp->query('//*[@id and not(self::script or self::style or self::noscript or self::svg or self::path) and not(ancestor::header or ancestor::footer or ancestor::nav)]');
-        $seen = [];
-        foreach ($nodes as $node) {
-            /** @var DOMElement $node */
-            $id_raw = trim($node->getAttribute('id'));
-            if ($id_raw === '') continue;
-            $id = sanitize_title($id_raw);
-            if ($id === '' || isset($seen[$id])) continue;
-            $seen[$id] = true;
+        if ($dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD)) {
+            $xp   = new DOMXPath($dom);
+            $nodes = $xp->query('//*[@id and not(self::script or self::style or self::noscript or self::svg or self::path) and not(ancestor::svg) and not(ancestor::header or ancestor::footer or ancestor::nav)]');
 
-            $tag = strtolower($node->tagName);
-            $label = $node->getAttribute('aria-label')
-                  ?: $node->getAttribute('data-label')
-                  ?: $node->getAttribute('data-title')
-                  ?: ($node->hasAttribute('alt') ? $node->getAttribute('alt') : '');
-
-            if ($label === '') {
-                $text = trim(preg_replace('/\s+/', ' ', $node->textContent ?? ''));
-                if ($text === '') {
-                    $head = $xp->query('.//h1|.//h2|.//h3|.//h4|.//h5|.//h6', $node)->item(0);
-                    if ($head instanceof DOMElement) {
-                        $text = trim(preg_replace('/\s+/', ' ', $head->textContent ?? ''));
-                    }
+            $seen = [];
+            foreach ($nodes as $node) {
+                /** @var DOMElement $node */
+                $rawId = trim($node->getAttribute('id'));
+                if ($rawId === '') {
+                    continue;
                 }
-                $label = $text !== '' ? $text : $id;
-            }
 
-            $label = wp_strip_all_tags($label);
-            if (function_exists('mb_strlen') && function_exists('mb_substr') && mb_strlen($label) > 140) {
-                $label = mb_substr($label, 0, 137) . '…';
-            } elseif (strlen($label) > 140) {
-                $label = substr($label, 0, 137) . '…';
-            }
+                // —— reemplazo de sanitize_title(): preserva mayúsculas + unicidad
+                $id = thd_sanitize_anchor_preserve_case($rawId);
+                if (isset($seen[strtolower($id)])) {
+                    $id = thd_make_unique_anchor($id, $seen);
+                } else {
+                    $seen[strtolower($id)] = true;
+                }
 
-            if (in_array($tag, ['div','section','article','main','aside']) && $label === $id) {
-                continue;
-            }
+                $tag = strtolower($node->tagName);
+                $label = $node->getAttribute('aria-label')
+                    ?: $node->getAttribute('data-label')
+                    ?: $node->getAttribute('data-title')
+                    ?: ($node->hasAttribute('alt') ? $node->getAttribute('alt') : '');
 
-            // Normaliza/trunca ancla para que coincida con Gutenberg
-            if (function_exists('thd_normalize_anchor')) {
-                $id = thd_normalize_anchor($id, array_keys($seen), defined('THD_ANCHOR_MAX') ? THD_ANCHOR_MAX : 45);
-            }
+                if ($label === '') {
+                    $text = trim(preg_replace('/\s+/', ' ', $node->textContent ?? ''));
+                    if ($text === '') {
+                        $head = $xp->query('.//h1|.//h2|.//h3|.//h4|.//h5|.//h6', $node)->item(0);
+                        if ($head instanceof DOMElement) {
+                            $text = trim(preg_replace('/\s+/', ' ', $head->textContent ?? ''));
+                        }
+                    }
+                    $label = $text !== '' ? $text : $id;
+                }
 
-            $items[] = ['label' => $label, 'id' => $id, 'tag' => $tag];
+                $label = wp_strip_all_tags($label);
+                if (function_exists('mb_strlen') && function_exists('mb_substr') && mb_strlen($label) > 140) {
+                    $label = mb_substr($label, 0, 137) . '…';
+                } elseif (strlen($label) > 140) {
+                    $label = substr($label, 0, 137) . '…';
+                }
+
+                if (in_array($tag, ['div','section','article','main','aside'], true) && $label === $id) {
+                    continue;
+                }
+
+                $items[] = ['label' => $label, 'id' => $id, 'tag' => $tag];
+            }
         }
+        libxml_clear_errors();
+        libxml_use_internal_errors(false);
     }
 
+    // —— Fallback regex (SIN thd_normalize_anchor)
     if (empty($items)) {
         if (preg_match_all('/\sid\s*=\s*([\'"])(.*?)\1/i', $content, $m)) {
             $seen = [];
-            foreach ($m[2] as $id_raw) {
-                $id = sanitize_title($id_raw);
-                if ($id === '' || isset($seen[$id])) continue;
-                if (function_exists('thd_normalize_anchor')) {
-                    $id = thd_normalize_anchor($id, array_keys($seen), defined('THD_ANCHOR_MAX') ? THD_ANCHOR_MAX : 45);
-                }
-                $seen[$id] = true;
+            foreach ($m[2] as $rawId) {
+                $id = thd_make_unique_anchor($rawId, $seen); // ← preserva mayúsculas y hace único
                 $items[] = ['label' => $id, 'id' => $id, 'tag' => 'unknown'];
             }
         }
@@ -404,48 +474,131 @@ add_action('acf/save_post', function ($post_id) {
     thd_nav_update_acf($post_id, $json);
     thd_nav_admin_notice($post_id, !empty($items) ? count($items) : 0);
 }, 999);
-
 add_action('save_post', function () { /* intencionalmente vacío */ }, 9999);
 
+// ——— Helpers de anchors (preserva mayúsculas)
+if (!function_exists('thd_sanitize_anchor_preserve_case')) {
+    function thd_sanitize_anchor_preserve_case(string $raw): string
+    {
+        $id = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $id = trim($id);
+        $id = preg_replace('/\s+/u', '-', $id);                // espacios -> guiones
+        $id = preg_replace('/[^A-Za-z0-9\-\_:.]/u', '-', $id); // set permitido
+        $id = preg_replace('/-+/', '-', $id);                  // colapsa guiones
+        $id = trim($id, '-');
+        return $id !== '' ? $id : 'section';
+    }
+}
+if (!function_exists('thd_make_unique_anchor')) {
+    function thd_make_unique_anchor(string $base, array &$taken): string
+    {
+        $base = thd_sanitize_anchor_preserve_case($base);
+        $candidate = $base;
+        $i = 2;
+        while (isset($taken[strtolower($candidate)])) {
+            $candidate = $base . '-' . $i++;
+        }
+        $taken[strtolower($candidate)] = true;
+        return $candidate;
+    }
+}
+
+/**
+ * Actualiza el valor en ACF si está disponible; si no, usa post_meta.
+ * Intenta resolver por key o por name y evita escrituras si no hay cambios.
+ */
 function thd_nav_update_acf($post_id, $value)
 {
-    $field_ident = THD_NAV_ACF_FIELD;
+    $field_ident = defined('THD_NAV_ACF_FIELD') ? THD_NAV_ACF_FIELD : 'navigator';
+    $value = (string)$value;
+
+    // ——— Evita escrituras si no cambió
+    $current = get_post_meta($post_id, $field_ident, true);
+    if ((string)$current === $value) {
+        return;
+    }
+
+    // ——— Si no existe ACF: post_meta directo
     if (!function_exists('update_field')) {
         update_post_meta($post_id, $field_ident, $value);
         return;
     }
+
+    // ——— Si el identificador ya es field_key
     if (strpos($field_ident, 'field_') === 0) {
         update_field($field_ident, $value, $post_id);
         return;
     }
-    if (function_exists('acf_get_field')) {
+
+    // ——— Intentar resolver el field por name para este post (clonado/local)
+    if (function_exists('acf_maybe_get_field')) {
+        $field = acf_maybe_get_field($field_ident, $post_id);
+        if (is_array($field) && !empty($field['key'])) {
+            update_field($field['key'], $value, $post_id);
+            return;
+        }
+    } elseif (function_exists('acf_get_field')) {
+        // Fallback: menos fiable sin contexto de $post_id
         $field = acf_get_field($field_ident);
         if (is_array($field) && !empty($field['key'])) {
             update_field($field['key'], $value, $post_id);
             return;
         }
     }
+
+    // ——— Último recurso: guardar como meta “plano”
+    // Limpia key ACF antigua si existía para evitar incoherencias
     delete_post_meta($post_id, '_' . $field_ident);
     update_post_meta($post_id, $field_ident, $value);
 }
 
+/**
+ * Guarda un aviso para mostrarse en el siguiente request (no imprime durante el save).
+ * El aviso se asocia al usuario actual para evitar mostrarlo a otros.
+ */
 function thd_nav_admin_notice($post_id, $count)
 {
-    if (!is_admin() || !current_user_can('manage_options')) return;
+    if (!is_admin()) {
+        return;
+    }
+    $uid = get_current_user_id();
+    if (!$uid) {
+        return;
+    }
 
-    set_transient('_thd_nav_notice_' . $post_id, (int)$count, 60);
-    add_action('admin_notices', function () use ($post_id) {
-        if ($n = get_transient('_thd_nav_notice_' . $post_id)) {
-            delete_transient('_thd_nav_notice_' . $post_id);
-            echo '<div class="notice notice-success is-dismissible"><p><strong>Navegación:</strong> guardados '
-                 . intval($n) . ' anchors en ACF (<code>' . esc_html(THD_NAV_ACF_FIELD) . '</code>).</p></div>';
-        }
-    });
+    $payload = array(
+        'post_id' => (int)$post_id,
+        'count'   => (int)$count,
+        'field'   => defined('THD_NAV_ACF_FIELD') ? THD_NAV_ACF_FIELD : 'navigator',
+    );
+    set_transient('_thd_nav_notice_' . $uid, $payload, 60);
 }
+
+// Hook global para renderizar el aviso si existe (en cualquier pantalla admin)
+add_action('admin_notices', function () {
+    $uid = get_current_user_id();
+    if (!$uid) {
+        return;
+    }
+
+    $payload = get_transient('_thd_nav_notice_' . $uid);
+    if (!$payload || !is_array($payload)) {
+        return;
+    }
+
+    delete_transient('_thd_nav_notice_' . $uid);
+
+    $count = isset($payload['count']) ? (int)$payload['count'] : 0;
+    $field = isset($payload['field']) ? $payload['field'] : 'navigator';
+
+    echo '<div class="notice notice-success is-dismissible"><p><strong>Navegación:</strong> guardados '
+         . esc_html((string)$count) . ' anchors en ACF (<code>' . esc_html($field) . '</code>).</p></div>';
+});
 
 /** Helper legacy (si lo sigues usando en otros lugares) */
 if (!function_exists('thd_anchor_slug')) {
-    function thd_anchor_slug($text, $max = 45) {
+    function thd_anchor_slug($text, $max = 45)
+    {
         $slug = sanitize_title(remove_accents((string)$text));
         if ($max > 0 && strlen($slug) > $max) {
             $slug = rtrim(substr($slug, 0, $max), '-_');
@@ -454,41 +607,56 @@ if (!function_exists('thd_anchor_slug')) {
     }
 }
 
-/** Shortcode del Navigator (usa permalink#id normalizado) */
+/**
+ * Shortcode del Navigator (permite mayúsculas en IDs y evita colisiones case-insensitive).
+ * Uso: [post_navigator]
+ */
 add_shortcode('post_navigator', function () {
     $post_id = get_the_ID();
-    if (!$post_id) return '';
+    if (!$post_id) {
+        return '';
+    }
 
+    $selector = defined('THD_NAV_ACF_FIELD') ? THD_NAV_ACF_FIELD : 'navigator';
     $json = function_exists('get_field')
-        ? get_field(THD_NAV_ACF_FIELD, $post_id)
-        : get_post_meta($post_id, THD_NAV_ACF_FIELD, true);
+        ? get_field($selector, $post_id) // formateado/igual nos sirve: esperamos JSON string
+        : get_post_meta($post_id, $selector, true);
 
     $items = json_decode((string)$json, true);
-    if (!is_array($items) || empty($items)) return '';
+    if (!is_array($items) || empty($items)) {
+        return '';
+    }
 
     $base = get_permalink($post_id);
     $seen = [];
 
     ob_start(); ?>
 <nav class="post-navigator" aria-label="<?php echo esc_attr__('Navegación del artículo', 'thd'); ?>">
-  <ol>
-    <?php foreach ($items as $it):
-        $label = isset($it['label']) ? trim((string)$it['label']) : '';
-        $idraw = isset($it['id'])    ? trim((string)$it['id'])    : '';
-        if ($label === '' || $idraw === '') continue;
+    <ol>
+        <?php foreach ($items as $it):
+            $label = isset($it['label']) ? trim((string)$it['label']) : '';
+            $idraw = isset($it['id']) ? trim((string)$it['id']) : '';
+            if ($label === '' || $idraw === '') {
+                continue;
+            }
 
-        if (function_exists('thd_normalize_anchor')) {
-            $id = thd_normalize_anchor($idraw, $seen, defined('THD_ANCHOR_MAX') ? THD_ANCHOR_MAX : 45);
-            $seen[] = $id;
-        } else {
-            if (strpos($idraw, '#') !== false) $idraw = substr($idraw, strpos($idraw, '#') + 1);
-            $id = sanitize_title(ltrim($idraw, '/'));
-        }
+            // Acepta valores con '#...' y preserva mayúsculas
+            if (strpos($idraw, '#') !== false) {
+                $idraw = substr($idraw, strpos($idraw, '#') + 1);
+            }
+            $id = thd_sanitize_anchor_preserve_case(ltrim($idraw, '/'));
 
-        $href = $base . '#' . $id; ?>
+            // Evita colisiones ignorando el case
+            if (isset($seen[strtolower($id)])) {
+                $id = thd_make_unique_anchor($id, $seen);
+            } else {
+                $seen[strtolower($id)] = true;
+            }
+
+            $href = $base . '#' . $id; ?>
         <li><a href="<?php echo esc_url($href); ?>"><?php echo esc_html($label); ?></a></li>
-    <?php endforeach; ?>
-  </ol>
+        <?php endforeach; ?>
+    </ol>
 </nav>
 <?php
     return ob_get_clean();

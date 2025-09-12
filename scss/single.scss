@@ -9,6 +9,16 @@ $rc-text-muted: #6b7280;
 .post-featured-image {
   margin-top: 50px;
 
+  .post-featured{
+    aspect-ratio: 1024 / 529; /* fija el lienzo */
+    overflow: hidden;
+    &-image__img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* recorta */
+      display: block;
+    }
+  }
   img {
     width: 100%;
     height: auto;

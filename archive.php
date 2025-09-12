@@ -104,33 +104,27 @@ if ($term && isset($term->term_id) && isset($term->taxonomy)) {
                 }
             }
         ?>
-            <article class="ba-card">
-                <a class="ba-card__media" href="<?php the_permalink(); ?>">
-                    <img
-                        class="ba-card__img"
-                        src="<?php echo esc_url($img_url); ?>"
-                        alt="<?php echo esc_attr($img_alt); ?>"
-                        loading="lazy"
-                        decoding="async"
-                        <?php echo $srcset_attr; ?>
-                    >
-                </a>
+        <article class="ba-card">
+            <a class="ba-card__media" href="<?php the_permalink(); ?>">
+                <img class="ba-card__img" src="<?php echo esc_url($img_url); ?>" alt="<?php echo esc_attr($img_alt); ?>"
+                    loading="lazy" decoding="async" <?php echo $srcset_attr; ?>>
+            </a>
 
-                <div class="ba-card__body">
-                    <h3 class="ba-card__title">
-                        <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
-                    </h3>
-                    <time class="ba-card__date" datetime="<?php echo esc_attr(get_the_date('c')); ?>">
-                        <?php echo esc_html(get_the_date('d/m/Y')); ?>
-                    </time>
-                    <p class="ba-card__excerpt">
-                        <?php echo esc_html(wp_trim_words(get_the_excerpt() ?: wp_strip_all_tags(get_the_content()), 24, '…')); ?>
-                    </p>
-                    <a class="ba-card__cta" href="<?php the_permalink(); ?>">VER NOTA</a>
-                </div>
-            </article>
+            <div class="ba-card__body">
+                <h3 class="ba-card__title">
+                    <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+                </h3>
+                <time class="ba-card__date" datetime="<?php echo esc_attr(get_the_date('c')); ?>">
+                    <?php echo esc_html(get_the_date('d/m/Y')); ?>
+                </time>
+                <p class="ba-card__excerpt">
+                    <?php echo esc_html(wp_trim_words(get_the_excerpt() ?: wp_strip_all_tags(get_the_content()), 24, '…')); ?>
+                </p>
+                <a class="ba-card__cta" href="<?php the_permalink(); ?>">VER NOTA</a>
+            </div>
+        </article>
         <?php endwhile; else : ?>
-            <p class="ba-empty">No se encontraron notas.</p>
+        <p class="ba-empty">No se encontraron notas.</p>
         <?php endif; ?>
     </div>
     <!-- Paginación -->

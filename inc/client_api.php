@@ -58,45 +58,115 @@ function mostrar_api_client_manager()
 
     $clientes = $wpdb->get_results("SELECT * FROM $tabla ORDER BY creado_en DESC");
     ?>
-    <div class="wrap">
-        <h1>Clientes API</h1>
+<div class="wrap">
+    <h1>Clientes API</h1>
 
-        <form method="post">
-            <input type="text" name="nombre" placeholder="Nombre del cliente" required />
-            <input type="submit" name="nuevo_cliente" class="button button-primary" value="Crear Cliente" />
-        </form>
+    <form method="post">
+        <input type="text" name="nombre" placeholder="Nombre del cliente" required />
+        <input type="submit" name="nuevo_cliente" class="button button-primary" value="Crear Cliente" />
+    </form>
 
-        <hr>
+    <hr>
 
-        <table class="widefat">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Client ID</th>
-                    <th>Secret</th>
-                    <th>Creado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($clientes as $c): ?>
-                    <tr>
-                        <td><?= esc_html($c->id) ?></td>
-                        <td><?= esc_html($c->nombre) ?></td>
-                        <td><code><?= esc_html($c->client_id) ?></code></td>
-                        <td style="font-size:0.85em;"><code><?= esc_html($c->secret_key) ?></code></td>
-                        <td><?= esc_html($c->creado_en) ?></td>
-                        <td>
-                            <a href="<?= admin_url('admin.php?page=api-client-manager&eliminar=' . $c->id) ?>"
-                                onclick="return confirm('¿Eliminar?')" class="button">Eliminar</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                <?php if (empty($clientes))
-                    echo '<tr><td colspan="6">No hay clientes aún.</td></tr>'; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php
+    <table class="widefat">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Client ID</th>
+                <th>Secret</th>
+                <th>Creado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($clientes as $c): ?>
+            <tr>
+                <td><?= esc_html($c->id) ?></td>
+                <td><?= esc_html($c->nombre) ?></td>
+                <td><code><?= esc_html($c->client_id) ?></code></td>
+                <td style="font-size:0.85em;"><code><?= esc_html($c->secret_key) ?></code></td>
+                <td><?= esc_html($c->creado_en) ?></td>
+                <td>
+                    <a href="<?= admin_url('admin.php?page=api-client-manager&eliminar=' . $c->id) ?>"
+                        onclick="return confirm('¿Eliminar?')" class="button">Eliminar</a>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (empty($clientes)) {
+                echo '<tr><td colspan="6">No hay clientes aún.</td></tr>';
+            } ?>
+        </tbody>
+    </table>
+</div>
+<?php
+}
+
+
+if (!function_exists('thd_term_media_url')) {
+    function thd_term_media_url($taxonomy, $term_id, $field)
+    {
+        if (!function_exists('get_field')) {
+            return null;
+        }
+        $v = get_field($field, "{$taxonomy}_{$term_id}");
+        if (!$v) {
+            return null;
+        }
+
+        // 1) Cadena URL directa
+        if (is_string($v) && filter_var($v, FILTER_VALIDATE_URL)) {
+            return esc_url_raw($v);
+        }
+
+        // 2) ID de adjunto
+        if (is_numeric($v)) {
+            $u = wp_get_attachment_url((int)$v);
+            return $u ? esc_url_raw($u) : null;
+        }
+
+        // 3) Array de ACF (image object)
+        if (is_array($v)) {
+            if (!empty($v['url'])) {
+                return esc_url_raw($v['url']);
+            }
+            if (!empty($v['ID'])) {
+                $u = wp_get_attachment_url((int)$v['ID']);
+                return $u ? esc_url_raw($u) : null;
+            }
+        }
+        return null;
+    }
+}
+
+
+// Elige el mejor icono e imagen con orden de preferencia y fallbacks
+if (!function_exists('thd_build_term_assets')) {
+    function thd_build_term_assets($taxonomy, $term_id)
+    {
+        // Orden recomendado
+        $icon  = thd_term_media_url($taxonomy, $term_id, 'icono_como_url')
+              ?: thd_term_media_url($taxonomy, $term_id, 'icono_como_png');
+
+        $image = thd_term_media_url($taxonomy, $term_id, 'imagen_como_url')
+              ?: thd_term_media_url($taxonomy, $term_id, 'imagen');
+
+        // Fallbacks de tema (ajústalos a tus rutas)
+        if (!$icon) {
+            $icon  = apply_filters('thd_tax_fallback_icon', get_template_directory_uri().'/img/icon-default.png', $taxonomy, $term_id);
+        }
+        if (!$image) {
+            $image = apply_filters('thd_tax_fallback_image', get_template_directory_uri().'/img/cover-default.jpg', $taxonomy, $term_id);
+        }
+
+        return [
+            'icon'            => $icon,
+            'image'           => $image,
+            // También exponemos los campos “crudos” por si los necesitas
+            'iconoComoUrl'    => thd_term_media_url($taxonomy, $term_id, 'icono_como_url'),
+            'iconoComoPng'    => thd_term_media_url($taxonomy, $term_id, 'icono_como_png'),
+            'imagenComoUrl'   => thd_term_media_url($taxonomy, $term_id, 'imagen_como_url'),
+            'imagenPng'       => thd_term_media_url($taxonomy, $term_id, 'imagen'),
+        ];
+    }
 }
