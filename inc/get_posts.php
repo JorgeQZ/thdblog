@@ -9,29 +9,27 @@ add_action('rest_api_init', function () {
     ]);
 });
 
-// /** Permite solo GET (público). Ajusta si quieres endurecer. */
 // function blog_rest_permission($request) {
 //     return ($request instanceof WP_REST_Request) && $request->get_method() === 'GET';
 // }
 
 function blog_get_posts($request)
 {
-    // Paginación segura: 1..100, default 12
+    // Paginación segura
     $page     = max(1, (int) $request->get_param('page'));
     $per_req  = (int) $request->get_param('per_page');
     $per_page = max(1, min(100, $per_req > 0 ? $per_req : 12));
 
+    // Query base
     $args = [
-        'post_type'        => 'post',
-        'posts_per_page'   => $per_page,
-        'paged'            => $page,
-        'post_status'      => 'publish',
+        'post_type'           => 'post',
+        'posts_per_page'      => $per_page,
+        'paged'               => $page,
+        'post_status'         => 'publish',
         'ignore_sticky_posts' => true,
     ];
-
-    // (Opcional) soporta filtros básicos sin romper contratos
     if ($s = (string) $request->get_param('s')) {
-        $args['s'] = sanitize_text_field($s);
+        $args['s']   = sanitize_text_field($s);
     }
     if ($cat = (int) $request->get_param('cat')) {
         $args['cat'] = $cat;
@@ -40,15 +38,15 @@ function blog_get_posts($request)
         $args['tag'] = sanitize_title($tag);
     }
 
-    $query = new WP_Query($args);
+    $q = new WP_Query($args);
 
-    // Helpers internos
-    $meta = function ($id, $key) {
-        $v = get_post_meta($id, $key, true);
-        return is_string($v) && $v !== '' ? $v : (is_array($v) ? $v : null);
+    // — Helpers —
+    $get_meta = function (int $post_id, string $key) {
+        $v = get_post_meta($post_id, $key, true);
+        return ($v === '' || $v === null) ? null : $v;
     };
-    $meta_json = function ($id, $key) use ($meta) {
-        $raw = $meta($id, $key);
+    $get_meta_json = function (int $post_id, string $key) use ($get_meta) {
+        $raw = $get_meta($post_id, $key);
         if (!$raw) {
             return null;
         }
@@ -56,183 +54,291 @@ function blog_get_posts($request)
             return $raw;
         }
         $d = json_decode($raw, true);
-        return $d ?: null;
+        return is_array($d) ? $d : null;
     };
     $nulls = function ($v) {
-        // Mantiene tu contrato: null/false/'' -> 'null' (string)
+        // Contrato vigente: null/false/'' => 'null'
         return ($v === null || $v === false || $v === '') ? 'null' : $v;
     };
-    $gallery_to_array = function ($raw) {
+    $to_array = function ($raw) {
         if (!$raw) {
             return [];
         }
         if (is_array($raw)) {
             return array_values(array_filter($raw));
         }
-        $json = json_decode($raw, true);
-        if (is_array($json)) {
-            return array_values(array_filter($json));
+        $j = json_decode($raw, true);
+        if (is_array($j)) {
+            return array_values(array_filter($j));
         }
-        $parts = preg_split('/[\r\n,]+/', (string)$raw);
+        $parts = preg_split('/[\r\n,]+/u', (string) $raw);
         return array_values(array_filter(array_map('trim', $parts)));
     };
-    $collect_related = function ($id) {
-        $ids = [];
-        if (function_exists('get_field')) {
-            $gv = get_field('guias_de_venta', $id);
-            if (!empty($gv['related_posts_guias'])) {
-                $ids = array_merge($ids, array_map('intval', (array)$gv['related_posts_guias']));
+    $slugify = function (string $txt) {
+        $txt = trim(mb_strtolower($txt, 'UTF-8'));
+        $txt = strtr($txt, ['á' => 'a','é' => 'e','í' => 'i','ó' => 'o','ú' => 'u','ñ' => 'n']);
+        return sanitize_title($txt);
+    };
+    $normalize_label = function ($txt) {
+        if ($txt === null) {
+            return null;
+        }
+        $txt = trim((string) $txt);
+        $txt = mb_strtolower($txt, 'UTF-8');
+        $txt = strtr($txt, ['á' => 'a','é' => 'e','í' => 'i','ó' => 'o','ú' => 'u','Á' => 'a','É' => 'e','Í' => 'i','Ó' => 'o','Ú' => 'u','Ñ' => 'ñ']);
+        return preg_replace('/\s+/u', ' ', $txt);
+    };
+    // Todos los términos como slugs únicos
+    $all_term_slugs = function ($maybe_terms) use ($slugify): array {
+        $slugs = [];
+        $push = function ($labelOrSlug) use (&$slugs, $slugify) {
+            if ($labelOrSlug === null || $labelOrSlug === '') {
+                return;
             }
-            $tt = get_field('related_posts_tutoriales', $id);
-            if (!empty($tt['related_posts_tutoriales'])) {
-                $ids = array_merge($ids, array_map('intval', (array)$tt['related_posts_tutoriales']));
+            $slug = $slugify((string)$labelOrSlug);
+            if ($slug !== '' && !in_array($slug, $slugs, true)) {
+                $slugs[] = $slug;
+            }
+        };
+        if (!$maybe_terms) {
+            return $slugs;
+        }
+
+        if ($maybe_terms instanceof WP_Term) {
+            $push($maybe_terms->slug ?: $maybe_terms->name);
+            return $slugs;
+        }
+        if (is_array($maybe_terms)) {
+            foreach ($maybe_terms as $item) {
+                if ($item instanceof WP_Term) {
+                    $push($item->slug ?: $item->name);
+                } elseif (is_numeric($item)) {
+                    $t = get_term((int)$item);
+                    if ($t && !is_wp_error($t)) {
+                        $push($t->slug ?: $t->name);
+                    }
+                } elseif (is_string($item)) {
+                    if (strpos($item, ',') !== false) {
+                        foreach (array_filter(array_map('trim', explode(',', $item))) as $p) {
+                            $push($p);
+                        }
+                    } else {
+                        $push($item);
+                    }
+                }
+            }
+            return $slugs;
+        }
+        if (is_string($maybe_terms)) {
+            $json = json_decode($maybe_terms, true);
+            if (is_array($json)) {
+                foreach ($json as $p) {
+                    $push(is_array($p) && isset($p['name']) ? $p['name'] : $p);
+                }
+            } else {
+                foreach (array_filter(array_map('trim', explode(',', $maybe_terms))) as $p) {
+                    $push($p);
+                }
             }
         }
-        return array_values(array_unique(array_filter(array_map('intval', $ids))));
+        return $slugs;
+    };
+    // Slug normalizado para difficulty/posttype
+    $difficulty_slug = function ($raw) use ($slugify) {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        $s = mb_strtolower(trim((string)$raw), 'UTF-8');
+        $s = strtr($s, ['á' => 'a','é' => 'e','í' => 'i','ó' => 'o','ú' => 'u']);
+        $map = [
+            'facil' => 'facil','fácil' => 'facil','easy' => 'facil','1' => 'facil',
+            'media' => 'media','intermedia' => 'media','medio' => 'media','medium' => 'media','2' => 'media',
+            'dificil' => 'dificil','difícil' => 'dificil','hard' => 'dificil','3' => 'dificil',
+        ];
+        return $map[$s] ?? $slugify($s);
+    };
+    $posttype_slug = function ($raw) use ($slugify) {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        $s = mb_strtolower(trim((string)$raw), 'UTF-8');
+        $s = strtr($s, ['á' => 'a','é' => 'e','í' => 'i','ó' => 'o','ú' => 'u']);
+        $map = ['tutorial' => 'tutorial','guia' => 'guia','guía' => 'guia','idea' => 'idea','proyecto' => 'proyecto','nota' => 'nota'];
+        return $map[$s] ?? $slugify($s);
+    };
+    $content_plain = function ($raw) {
+        $t = wp_strip_all_tags((string) $raw, true);
+        $t = html_entity_decode($t, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return preg_replace('/\s+/u', ' ', trim($t));
     };
 
     $default_cover = apply_filters('thd_api_fallback_thumb', get_template_directory_uri() . '/img/cover-default.jpg');
 
-    $posts = [];
-    foreach ($query->posts as $post) {
-        $id        = $post->ID;
-        $author_id = $post->post_author;
+    $out = [];
+    foreach ($q->posts as $p) {
+        $id        = (int) $p->ID;
+        $author_id = (int) $p->post_author;
 
         // Imágenes con fallback
         $thumb = get_the_post_thumbnail_url($id, 'medium') ?: $default_cover;
         $main  = get_the_post_thumbnail_url($id, 'full') ?: $thumb;
-        $ogimg = $meta($id, '_og_image') ?: $main ?: $thumb;
-        $twimg = $meta($id, '_twitter_image') ?: $ogimg ?: $main ?: $thumb;
 
-        // Galería
-        $gallery = $gallery_to_array($meta($id, '_gallery_images'));
-
-        // Breadcrumb/Schema
-        $breadcrumb = $meta_json($id, '_structured_breadcrumb');
-        $schema_ld  = $meta_json($id, '_schema_json');
-
-        // Relacionados (IDs)
-        $related = $collect_related($id);
-
-        // Navigator como array de <a> (permalink#id normalizado/truncado)
-        $nav_json = function_exists('get_field')
-            ? get_field(THD_NAV_ACF_FIELD, $id)
-            : get_post_meta($id, THD_NAV_ACF_FIELD, true);
-
-        $items = json_decode((string)$nav_json, true);
-        $navigator_array = [];
-        if (is_array($items) && !empty($items)) {
+        // Navigator (si existe)
+        $navigator = [];
+        $nav_raw = function_exists('get_field') ? get_field(THD_NAV_ACF_FIELD, $id) : get_post_meta($id, THD_NAV_ACF_FIELD, true);
+        $nav_items = json_decode((string) $nav_raw, true);
+        if (is_array($nav_items) && $nav_items) {
             $base = get_permalink($id);
-            $seen = [];
-            foreach ($items as $it) {
-                $label = isset($it['label']) ? trim((string)$it['label']) : '';
-                $nid   = isset($it['id']) ? trim((string)$it['id']) : '';
+            foreach ($nav_items as $it) {
+                $label = isset($it['label']) ? trim((string) $it['label']) : '';
+                $nid   = isset($it['id']) ? trim((string) $it['id']) : '';
                 if ($label && $nid) {
-                    if (function_exists('thd_normalize_anchor')) {
-                        $nid = thd_normalize_anchor($nid, $seen, defined('THD_ANCHOR_MAX') ? THD_ANCHOR_MAX : 45);
-                        $seen[] = $nid;
-                    } else {
-                        // fallback mínimo
-                        if (strpos($nid, '#') !== false) {
-                            $nid = substr($nid, strpos($nid, '#') + 1);
-                        }
-                        $nid = sanitize_title(ltrim($nid, '/'));
+                    if (strpos($nid, '#') !== false) {
+                        $nid = substr($nid, strpos($nid, '#') + 1);
                     }
-                    $navigator_array[] = '<a href="' . esc_url($base . '#' . $nid) . '">' . esc_html($label) . '</a>';
+                    $navigator[] = '<a href="' . esc_url($base . '#' . sanitize_title($nid)) . '">' . esc_html($label) . '</a>';
                 }
             }
         }
 
-        // Contenido crudo + renderizado
-        $content_raw = get_post_field('post_content', $id);
-        $content_rendered = apply_filters('the_content', $content_raw);
-        $content_plain = thd_content_plain($content_raw);
+        // Contenidos
+        $raw    = get_post_field('post_content', $id);
+        $render = apply_filters('the_content', $raw);
+        $plain  = $content_plain($raw);
 
-        $posts[] = [
+        // —— ATTRIBUTES con claves exactas pedidas ——
+        // _espacio_del_hogar: lista de slugs (todos)
+        $espacio_raw = function_exists('get_field') ? get_field('espacio_del_hogar', $id) : null;
+        if ($espacio_raw === null || $espacio_raw === '') {
+            $meta_esp = $get_meta($id, '_espacio_del_hogar');
+            if (is_string($meta_esp)) {
+                $maybe = json_decode($meta_esp, true);
+                $espacio_raw = is_array($maybe) ? $maybe : $meta_esp;
+            } else {
+                $espacio_raw = $meta_esp;
+            }
+        }
+        $espacios_slugs = $all_term_slugs($espacio_raw); // ej.: ["sala","cocina","terraza"]
+
+        // _duration: texto del campo (no en minutos), normalizado a minúsculas sin acentos
+        $duration_raw = function_exists('get_field') ? get_field('duration', $id) : null;
+        if ($duration_raw === null || $duration_raw === '') {
+            $duration_raw = $get_meta($id, '_duration');
+        }
+        $duration_txt = $normalize_label($duration_raw);  // ej.: "1 dia o menos"
+
+        // _difficulty y _posttype: slugs normalizados
+        $difficulty_raw = $get_meta($id, '_difficulty');
+        $posttype_raw   = $get_meta($id, '_posttype');
+
+        $difficulty_norm = $difficulty_slug($difficulty_raw); // "facil" | "media" | "dificil" | otro slug
+        $posttype_norm   = $posttype_slug($posttype_raw);     // "tutorial"|"guia"|...
+
+        // SEO/OG
+        $ogimg = $get_meta($id, '_og_image') ?: $main ?: $thumb;
+        $twimg = $get_meta($id, '_twitter_image') ?: $ogimg ?: $main ?: $thumb;
+
+        $out[] = [
             // Core
-            'id'                 => $id,
-            'date'               => $post->post_date,
-            'modified'           => $post->post_modified,
-            'status'             => $post->post_status,
-            'link'               => get_permalink($post),
-            'postType'           => $meta($id, '_posttype') ?: 'Tutorial',
-            'title'              => get_the_title($post),
-            'author'             => get_the_author_meta('display_name', $author_id),
-            'authorDescription'  => $nulls(get_the_author_meta('description', $author_id)),
-            'difficulty'         => $nulls($meta($id, '_difficulty')),
-            'duration'           =>  $nulls($meta($id, '_duration')),
+            'id'                => $id,
+            'date'              => $p->post_date,
+            'modified'          => $p->post_modified,
+            'status'            => $p->post_status,
+            'link'              => get_permalink($id),
+            'postType'          => $posttype_raw ?: 'Tutorial', // compat
+            'title'             => get_the_title($id),
+            'author'            => get_the_author_meta('display_name', $author_id),
+            'authorDescription' => $nulls(get_the_author_meta('description', $author_id)),
 
-            // Imágenes (con fallback)
-            'thumbnail'          => $nulls($thumb),
-            'mainImage'          => $nulls($main),
+            // Compatibilidad con esquema previo
+            'difficulty'        => $nulls($difficulty_raw),
+            'duration'          => $nulls($duration_raw),
 
-            // Excerpt / Descripción
-            'shortDescription'   => $nulls($meta($id, '_short_description')),
+            // === Nodo attributes con claves exactas ===
+            'attributes'        => [
+                'espacio_del_hogar' => !empty($espacios_slugs) ? $espacios_slugs : 'null',
+                'duration'          => $nulls($duration_txt),
+                'difficulty'        => $nulls($difficulty_norm),
+                'posttype'          => $nulls($posttype_norm),
+            ],
 
-            // Media y tax
-            'video'              => $nulls($meta($id, '_video_url')),
-            'categories'         => wp_get_post_categories($id),
-            'tags'               => array_map(function ($t) { return $t->name; }, wp_get_post_tags($id)),
+            // Media
+            'thumbnail'         => $nulls($thumb),
+            'mainImage'         => $nulls($main),
 
-            // Navigator y relacionados
-            'navigator'          => !empty($navigator_array) ? $navigator_array : 'null',
-            'relatedPosts'       => !empty($related) ? $related : 'null',
+            // Descripción corta
+            'shortDescription'  => $nulls($get_meta($id, '_short_description')),
 
-            // Contenidos
-            'content'            => wp_kses_post($content_raw),
-            'contentRendered'    => wp_kses_post($content_rendered),
-            'contentPlain' => $nulls($content_plain),
+            // Tax y media
+            'video'             => $nulls($get_meta($id, '_video_url')),
+            'categories'        => wp_get_post_categories($id),
+            'tags'              => array_map(function ($t) { return $t->name; }, wp_get_post_tags($id)),
 
+            // Navegador y relacionados
+            'navigator'         => $navigator ?: 'null',
+            'relatedPosts'      => (function ($pid) {
+                $ids = [];
+                if (function_exists('get_field')) {
+                    $gv = get_field('guias_de_venta', $pid);
+                    if (!empty($gv['related_posts_guias'])) {
+                        $ids = array_merge($ids, (array) $gv['related_posts_guias']);
+                    }
+                    $tt = get_field('related_posts_tutoriales', $pid);
+                    if (!empty($tt['related_posts_tutoriales'])) {
+                        $ids = array_merge($ids, (array) $tt['related_posts_tutoriales']);
+                    }
+                }
+                $ids = array_values(array_unique(array_map('intval', $ids)));
+                return $ids ?: 'null';
+            })($id),
+
+            // Contenido
+            'content'           => wp_kses_post($raw),
+            'contentRendered'   => wp_kses_post($render),
+            'contentPlain'      => $nulls($content_plain($raw)),
 
             // SEO básicos
-            'seoTitle'           => $nulls($meta($id, '_seo_title')),
-            'metaDescripcion'    => $nulls($meta($id, '_meta_description')),
-            'metaKeywords'       => $nulls($meta($id, '_meta_keywords')),
-            'canonicalUrl'       => $nulls($meta($id, '_canonical_url')),
-            'robotsDirectives'   => $nulls($meta($id, '_robots_directives')),
+            'seoTitle'          => $nulls($get_meta($id, '_seo_title')),
+            'metaDescripcion'   => $nulls($get_meta($id, '_meta_description')),
+            'metaKeywords'      => $nulls($get_meta($id, '_meta_keywords')),
+            'canonicalUrl'      => $nulls($get_meta($id, '_canonical_url')),
+            'robotsDirectives'  => $nulls($get_meta($id, '_robots_directives')),
 
             // Open Graph
-            'ogTitle'            => $nulls($meta($id, '_og_title') ?: get_the_title($id)),
-            'ogDescription'      => $nulls($meta($id, '_og_description') ?: $meta($id, '_short_description')),
-            'ogImage'            => $nulls($ogimg),
-            'ogType'             => $nulls($meta($id, '_og_type') ?: 'article'),
-            'ogUrl'              => $nulls($meta($id, '_og_url') ?: get_permalink($id)),
+            'ogTitle'           => $nulls($get_meta($id, '_og_title') ?: get_the_title($id)),
+            'ogDescription'     => $nulls($get_meta($id, '_og_description') ?: $get_meta($id, '_short_description')),
+            'ogImage'           => $nulls($ogimg),
+            'ogType'            => $nulls($get_meta($id, '_og_type') ?: 'article'),
+            'ogUrl'             => $nulls($get_meta($id, '_og_url') ?: get_permalink($id)),
 
             // Twitter Card
-            'twitterCardType'    => $nulls($meta($id, '_twitter_card_type') ?: 'summary_large_image'),
-            'twitterTitle'       => $nulls($meta($id, '_twitter_title') ?: get_the_title($id)),
-            'twitterDescription' => $nulls($meta($id, '_twitter_description') ?: $meta($id, '_short_description')),
-            'twitterImage'       => $nulls($twimg),
-            'twitterCreator'     => $nulls($meta($id, '_twitter_creator')),
+            'twitterCardType'   => $nulls($get_meta($id, '_twitter_card_type') ?: 'summary_large_image'),
+            'twitterTitle'      => $nulls($get_meta($id, '_twitter_title') ?: get_the_title($id)),
+            'twitterDescription' => $nulls($get_meta($id, '_twitter_description') ?: $get_meta($id, '_short_description')),
+            'twitterImage'      => $nulls($twimg),
+            'twitterCreator'    => $nulls($get_meta($id, '_twitter_creator')),
 
-            // SEO avanzados
-            'schemaType'           => $nulls($meta($id, '_schema_type') ?: 'Article'),
-            'schemaJson'           => $schema_ld ?: 'null',
-            'focusKeyword'         => $nulls($meta($id, '_focus_keyword')),
-            'metaRobotsAdvanced'   => $nulls($meta($id, '_meta_robots_advanced')),
-            'metaViewport'         => $nulls($meta($id, '_meta_viewport')),
-            'canonicalAlternate'   => $nulls($meta($id, '_canonical_alternate')),
-            'altTextMainImage'     => $nulls($meta($id, '_alt_text_main_image')),
-            'imageCaption'         => $nulls($meta($id, '_image_caption')),
-            'videoTranscript'      => $nulls($meta($id, '_video_transcript')),
-            'galleryImages'        => !empty($gallery) ? $gallery : [],
-            'metaRefresh'          => $nulls($meta($id, '_meta_refresh')),
-            'structuredBreadcrumb' => $breadcrumb ?: 'null',
+            // Extras
+            'schemaType'           => $nulls($get_meta($id, '_schema_type') ?: 'Article'),
+            'schemaJson'           => $get_meta_json($id, '_schema_json') ?: 'null',
+            'structuredBreadcrumb' => $get_meta_json($id, '_structured_breadcrumb') ?: 'null',
+            'galleryImages'        => $to_array($get_meta($id, '_gallery_images')),
             'pagination'           => [
-                'prev' => $nulls($meta($id, '_pagination_prev')),
-                'next' => $nulls($meta($id, '_pagination_next')),
+                'prev' => $nulls($get_meta($id, '_pagination_prev')),
+                'next' => $nulls($get_meta($id, '_pagination_next')),
             ],
         ];
     }
 
     return [
-        'page'        => (int) $page,
-        'per_page'    => (int) $per_page,
-        'total'       => (int) $query->found_posts,
-        'total_pages' => (int) $query->max_num_pages,
-        'posts'       => $posts,
+        'page'        => $page,
+        'per_page'    => $per_page,
+        'total'       => (int) $q->found_posts,
+        'total_pages' => (int) $q->max_num_pages,
+        'posts'       => $out,
     ];
 }
+
 
 if (!function_exists('thd_content_plain')) {
     function thd_content_plain($raw)

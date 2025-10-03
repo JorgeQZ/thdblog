@@ -1,8 +1,13 @@
 <?php
 
-$BASE = 'https://homedepotmexico-develop.go-vip.net/ideas-y-proyectos/wp-json';
+$BASE = 'http://localhost:8888/blog/wp-json';
 $ID = 'thd';
-$SEC = '5da1d0f362fc379e9e6e43ce9785f6c0fc15709f2f16703fdbddd36bbb67dadc';
+$SEC = '03d7609a9178867d342e390fdd04297f5a79736c9808b2365de42ec09c9d6c4d';
+
+
+// $BASE = 'https://homedepotmexico-develop.go-vip.net/ideas-y-proyectos/wp-json';
+// $ID = 'thd';
+// $SEC = '5da1d0f362fc379e9e6e43ce9785f6c0fc15709f2f16703fdbddd36bbb67dadc';
 
 // Token
 $ch = curl_init($BASE.'/auth/v1/token');
@@ -29,8 +34,9 @@ function get_json($url, $tok)
     curl_close($ch);
     return $out;
 }
-
+echo '<pre>';
 echo get_json($BASE.'/v1/posts?per_page=5&page=1', $tok),PHP_EOL;
-echo get_json($BASE.'/v1/pages', $tok),PHP_EOL;
-echo get_json($BASE.'/v1/posttaxonomies', $tok),PHP_EOL;
-echo get_json($BASE.'/v1/tags', $tok),PHP_EOL;
+echo '</pre>';
+// echo get_json($BASE.'/v1/pages', $tok),PHP_EOL;
+// echo get_json($BASE.'/v1/posttaxonomies', $tok),PHP_EOL;
+// echo get_json($BASE.'/v1/tags', $tok),PHP_EOL;
